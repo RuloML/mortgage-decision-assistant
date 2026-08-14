@@ -1,0 +1,36 @@
+# ==================================================
+# Mortgage Decision Assistant
+# Files that must NOT be tracked by Git
+# ==================================================
+
+# Secrets and credentials
+.env
+*.env
+
+# Restricted / raw data
+data/raw/*
+!data/raw/README.md
+
+# Processed data derived from restricted sources
+data/processed/*
+!data/processed/README.md
+
+# Confidential business information
+business/confidential/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Operating system
+.DS_Store
+Thumbs.db
