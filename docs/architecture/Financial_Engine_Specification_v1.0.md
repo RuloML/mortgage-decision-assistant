@@ -608,3 +608,174 @@ Stress-test orchestration may be implemented separately through:
 Simulation-specific functions belong to the Simulation Engine rather than the Financial Engine.
 
 ---
+
+## 14. Predefined test-case families
+
+Golden test values must be calculated independently from the Python implementation.
+
+The final golden table must include at least the following test families:
+
+| Test case | Purpose |
+|---|---|
+| Standard operation | Full normal calculation |
+| LTV exactly 80% | Boundary precision |
+| LTV exactly 100% | Highly financed structure |
+| DSTI near threshold | Ratio precision |
+| Insufficient client cash | Positive `cash_gap` |
+| Requested loan insufficient | Positive `loan_gap` |
+| Requested loan exceeds required loan | Negative `loan_gap` |
+| Explicit current debt = 0 | Valid zero handling |
+| Current debt unknown | Ensure `None` is not converted to zero |
+| Interest rate missing | FE-002 fallback + assumption metadata |
+| Term missing | Fallback + metadata |
+| Planned down payment missing | `MAX_AVAILABLE_DOWN_PAYMENT` fallback |
+| Appraisal missing | Provisional LTV + assumption metadata |
+| Interest rate = 0 | Zero-interest amortization branch |
+| Property price = 0 | Controlled invalid-input behaviour |
+| Monthly income = 0 | Controlled DSTI failure |
+| Planned down payment > property price | Validation policy |
+| Desired cash buffer > available savings | Negative available cash / cash-gap behaviour |
+| Rate +2pp stress | Stress-test behaviour |
+| Income -10% stress | Stress-test behaviour |
+
+Expected values must be produced through an independent spreadsheet or equivalent independent calculation artifact before Python financial functions are implemented.
+
+---
+
+## 15. Decisions closed during reconciliation
+
+The following decisions are considered closed for the reconciled draft:
+
+1. `FinancialScenario` is the unit of calculation.
+2. `FinancialScenario` is immutable.
+3. The Financial Engine is pure, deterministic and stateless.
+4. Calculation and Rules Engine interpretation remain separate.
+5. Simulation reuses the same Financial Engine.
+6. The Financial Engine outputs indicators, not approval/rejection.
+7. Machine Learning is excluded from Financial Engine calculations.
+8. Monetary calculations use `Decimal`.
+9. Golden cases precede calculation implementation.
+10. `RiskFlags` belongs to the Rules Engine.
+11. Financial Engine quality metadata uses `CalculationMetadata`.
+12. `planned_down_payment` is separate from total available savings.
+13. `planned_down_payment` applies against property price, not purchase costs.
+14. `required_loan = property_price - planned_down_payment`.
+15. `requested_loan_amount` and `required_loan` remain separate.
+16. `financed_amount` uses requested amount when supplied; otherwise required amount.
+17. Payment, LTV, DSTI and total interest use `financed_amount`.
+18. `loan_gap` and `cash_gap` represent different structural deficits.
+19. `required_cash` is removed.
+20. Financial defaults and Rules Engine thresholds live in separate configuration files.
+21. `monthly_variable_income` and `other_verified_income` are excluded from Financial Engine v1 formulas.
+
+---
+
+## 16. Financial Engine decision register
+
+| ID | Decision | Status |
+|---|---|---|
+| FE-001 | Handling of `requested_loan_amount` versus `required_loan` | ✅ Reconciled — preserve both, derive `financed_amount`, calculate `loan_gap` |
+| FE-002 | Source of `interest_rate_reference` | 🟡 Partially resolved — provisional value in `financial_defaults.yaml`; formal update/source policy pending |
+| FE-003 | Ownership of `threshold_config_version` | ✅ Reconciled — belongs to Rules Engine, not Financial Engine |
+
+---
+
+## 17. Open items before Level A
+
+### O-01 — Negative `loan_gap`
+
+Confirm whether the Financial Engine only reports the signed value or also provides a separate surplus field.
+
+Current proposal: keep signed `loan_gap`; no duplicate surplus variable.
+
+### O-02 — Signed cash balance
+
+Current `cash_gap` is floored at zero.
+
+Decide whether to also expose a signed variable such as:
+
+`cash_balance_after_structure = available_cash_for_operation - total_cash_required`
+
+### O-03 — Planned down payment greater than property price
+
+Define whether:
+
+- the input is invalid and blocks calculation,
+- or the value is normalized to property price.
+
+No silent normalization should occur without an explicit design decision.
+
+
+### O-04 — Desired cash buffer fallback
+
+Define:
+
+- exact fallback value,
+- configuration ownership,
+- Lite behaviour,
+- corresponding assumption type.
+
+### O-05 — Term fallback
+
+Confirm the provisional `term_years_reference` and its source/status.
+
+### O-06 — Purchase-cost configuration hierarchy
+
+Define how purchase-cost assumptions are selected based on:
+
+- territory,
+- property type,
+- transaction type,
+- or a generic development fallback.
+
+No current configuration value should be represented as legal or tax truth until validated.
+
+
+### O-07 — `num_borrowers`
+
+Confirm whether `num_borrowers` belongs inside `FinancialScenario` v1 metadata or should be consumed only by Simulation/Rules layers.
+
+### O-08 — Technical confidence
+
+Define controlled values and derivation logic for `technical_confidence`.
+
+Possible values may be:
+
+- `HIGH`
+- `MEDIUM`
+- `LOW`
+
+These labels must represent input/fallback quality only and must not imply a probability of mortgage approval.
+
+### O-09 — Partial results
+
+Define which outputs may still be returned when one calculation is blocked.
+
+Example:
+
+- unknown `current_monthly_debt` may block DSTI and monthly margin,
+- while purchase costs, cash structure, required loan, financed amount and LTV may still remain valid.
+
+
+### O-10 — Zero financed amount
+
+Define monthly-payment and ratio behaviour when:
+
+`financed_amount = 0`
+
+The implementation must avoid invalid amortization or ratio calculations and return a controlled result.
+
+### O-11 — Negative available cash
+
+Confirm whether:
+
+`available_cash_for_operation < 0`
+
+is retained as signed financial information or handled through a validation state.
+
+---
+
+Until these items are reconciled:
+
+**Provenance: RECONCILED**  
+**Maturity: DRAFT**
