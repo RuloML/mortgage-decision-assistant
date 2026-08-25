@@ -52,6 +52,8 @@ Derived rule:
   missing value blocks the affected calculation.
 - `calculation_required = true` and `fallback_available = true`:
   calculation may continue using the documented fallback, but the fallback must be recorded in `CalculationMetadata`.
+- `calculation_required = false` and `fallback_available = false`:
+  the input is optional; its absence does not block calculation and may activate an explicitly documented alternative calculation path.
 - A numeric zero is not equivalent to a missing value.
 
 ---
@@ -71,7 +73,7 @@ Derived rule:
 | `interest_rate_annual` | Annual nominal rate used to evaluate the scenario | Both | Client / adviser / product scenario | Decimal or None | Decimal ratio, >= 0 | No | Yes | Yes | Use `interest_rate_reference` from `financial_defaults.yaml`; record fallback | Financial Engine |
 | `term_years` | Mortgage term | Both | Client / adviser | Integer or None | Years, > 0 | No | Yes | Yes | Use provisional configured term; record fallback | Financial Engine |
 | `purchase_cost_rate` | Estimated purchase costs as a proportion of property price | Both | Configuration / territory-property rules | Decimal | Decimal ratio, >= 0 | No | Yes | Yes | Use explicit configured assumption; record fallback and configuration version | Financial Engine |
-| `appraisal_value` | Property appraisal value when available | Pro primarily | Client / adviser / appraisal source | Decimal or None | EUR, > 0 | No | No | Yes | If absent, calculate provisional LTV using property price and flag limitation | Financial Engine |
+| `appraisal_value` | Property appraisal value when available | Pro primarily | Client / adviser / appraisal source | Decimal or None | EUR, > 0 | No | No | No | If absent, calculate `ltv_provisional` using `property_price`; no appraisal value is substituted | Financial Engine |
 | `num_borrowers` | Number of borrowers in the scenario | Both | Client / adviser | Integer | >= 1 | No | No | Yes | Default scenario representation may use 1 if not otherwise specified | Simulation / metadata |
 | `age_oldest_borrower` | Age of oldest borrower | Pro | Client / adviser | Integer or None | Years | No | No | No | Not consumed by Financial Engine v1 formulas | Future Rules / Simulation |
 
@@ -147,6 +149,7 @@ The Financial Engine must return a `CalculationMetadata` structure containing, a
 | `engine_version` | Financial Engine version |
 | `variable_dictionary_version` | Version of this dictionary |
 | `defaults_config_version` | Version of `financial_defaults.yaml` used |
+| `calculation_modes` | Explicit alternative calculation paths activated during calculation |
 
 `RiskFlags` is reserved for the Rules Engine and must not be used to represent calculation-quality metadata.
 
@@ -166,7 +169,14 @@ Initial v1 candidates:
 | `TERM_REFERENCE` | `term_years` missing and configured provisional term used |
 | `PURCHASE_COST_RATE_REFERENCE` | Purchase cost rate supplied through configuration rather than explicit scenario input |
 | `MAX_AVAILABLE_DOWN_PAYMENT` | `planned_down_payment` missing and system uses maximum cash available after purchase costs while preserving buffer |
-| `LTV_WITHOUT_APPRAISAL` | `appraisal_value` missing and provisional LTV calculated using property price |
+
+Alternative calculation paths are not assumptions and must be represented separately through a controlled `CalculationMode` Enum.
+
+Initial v1 candidate:
+
+| Calculation mode | Trigger |
+|---|---|
+| `LTV_PROVISIONAL_WITHOUT_APPRAISAL` | `appraisal_value` missing and provisional LTV calculated using `property_price` |
 
 An explicitly declared `current_monthly_debt = 0` is a factual input, not an assumption.
 
