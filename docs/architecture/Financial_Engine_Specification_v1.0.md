@@ -94,13 +94,20 @@ Contains calculation-quality and traceability information, including:
 - technical confidence,
 - engine version,
 - variable dictionary version,
-- defaults configuration version.
+- defaults configuration version,
+- calculation modes.
 
 ### `AssumptionType`
 
 Controlled Enum used for machine-readable assumptions.
 
 Free-text strings must not be the primary representation of assumptions.
+
+### `CalculationMode`
+
+Controlled Enum used to represent explicitly documented alternative calculation paths.
+
+Alternative calculation paths are not assumptions and must not be recorded as `AssumptionType`.
 
 ### `RiskFlags`
 
@@ -172,12 +179,14 @@ If `calculation_required = true` and `fallback_available = true`, calculation ma
 2. the fallback source is traceable,
 3. the assumption is recorded in `CalculationMetadata`.
 
+If `calculation_required = false` and `fallback_available = false`, the input is optional. Its absence does not block calculation and may activate an explicitly documented alternative calculation path.
+
 Examples:
 
 - missing `interest_rate_annual` → use configured reference rate;
 - missing `term_years` → use configured provisional term;
 - missing `planned_down_payment` → derive the documented fallback;
-- missing `appraisal_value` → calculate provisional LTV using property price.
+- missing `appraisal_value` → do not substitute an appraisal value; calculate provisional LTV using `property_price` and record the alternative calculation mode.
 
 `current_monthly_debt = 0` is valid only when explicitly declared.
 
@@ -351,9 +360,11 @@ When `appraisal_value` is missing:
 
 `ltv_provisional = financed_amount / property_price`
 
-In that case, the engine must record:
+In that case, no appraisal value is assumed or substituted.
 
-`AssumptionType.LTV_WITHOUT_APPRAISAL`
+The engine must record:
+
+`CalculationMode.LTV_PROVISIONAL_WITHOUT_APPRAISAL`
 
 The Financial Engine reports the ratio only.
 
@@ -451,6 +462,7 @@ Calculation quality must be returned through `CalculationMetadata`, including:
 - `engine_version`
 - `variable_dictionary_version`
 - `defaults_config_version`
+- `calculation_modes`
 
 The exact controlled values for completeness and confidence remain open before Level A.
 
