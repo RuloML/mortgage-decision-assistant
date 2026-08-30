@@ -118,7 +118,9 @@ Interpretation:
 - `loan_gap = 0`: requested amount matches calculated required loan.
 - `loan_gap < 0`: requested amount exceeds calculated required loan.
 
-The Financial Engine reports the value but does not classify whether it is acceptable.
+The Financial Engine reports the signed value but does not classify whether it is acceptable.
+
+A negative `loan_gap` must be preserved as a negative value. Financial Engine v1 does not create a separate `loan_surplus` variable because that would duplicate the same information with inverted sign.
 
 ## `cash_gap`
 
@@ -268,7 +270,7 @@ Variable Dictionary v1.2 introduces or formalizes:
 
 The following points require cross-checking against the reconciled Financial Engine Specification before this dictionary may be marked Level A:
 
-1. Confirm exact handling of negative `loan_gap`.
+1. CLOSED — Negative `loan_gap` is preserved as a signed value; no separate `loan_surplus` variable is introduced.
 2. Confirm whether `cash_gap` should remain floored at zero while a separate signed cash balance is retained.
 3. Confirm validation rule for `planned_down_payment > property_price`.
 4. Confirm exact fallback policy for `desired_cash_buffer`.
