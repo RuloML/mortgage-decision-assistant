@@ -238,7 +238,13 @@ This represents the mortgage capital required to finance the purchase price give
 
 Purchase costs are not automatically added to `required_loan`.
 
-The validation policy for `planned_down_payment > property_price` remains open before Level A.
+Validation rule:
+
+`0 <= planned_down_payment <= property_price`
+
+`planned_down_payment = property_price` is valid and produces `required_loan = 0`.
+
+`planned_down_payment > property_price` is invalid input. The Financial Engine must not silently cap or correct the value.
 
 ---
 
@@ -712,15 +718,15 @@ Financial Engine v1 does not introduce an additional signed cash-balance variabl
 
 `residual_savings` and `desired_cash_buffer` already preserve the information needed to evaluate whether the scenario leaves liquidity above or below the desired retained buffer.
 
-### O-03 — Planned down payment greater than property price
+### O-03 – Planned down payment greater than property price
 
-Define whether:
+**CLOSED** — `planned_down_payment` must satisfy:
 
-- the input is invalid and blocks calculation,
-- or the value is normalized to property price.
+`0 <= planned_down_payment <= property_price`
 
-No silent normalization should occur without an explicit design decision.
+A value equal to `property_price` is valid and produces `required_loan = 0`.
 
+A value above `property_price` is invalid input and must not be silently capped or corrected.
 
 ### O-04 — Desired cash buffer fallback
 

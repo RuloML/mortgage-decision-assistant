@@ -272,7 +272,7 @@ The following points require cross-checking against the reconciled Financial Eng
 
 1. CLOSED — Negative `loan_gap` is preserved as a signed value; no separate `loan_surplus` variable is introduced.
 2. CLOSED — `cash_gap` remains floored at zero. No separate signed cash-balance variable is introduced in v1 because `residual_savings` and `desired_cash_buffer` already preserve the information required to evaluate remaining liquidity.
-3. Confirm validation rule for `planned_down_payment > property_price`.
+3. CLOSED — `planned_down_payment` must satisfy `0 <= planned_down_payment <= property_price`. Values above `property_price` are invalid and must not be silently capped or corrected.
 4. Confirm exact fallback policy for `desired_cash_buffer`.
 5. Confirm exact provisional fallback for `term_years`.
 6. Confirm purchase-cost configuration hierarchy by territory/property type.
