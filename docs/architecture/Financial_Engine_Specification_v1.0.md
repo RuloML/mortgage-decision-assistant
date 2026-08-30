@@ -139,6 +139,13 @@ Core Financial Engine v1 variables include:
 - `purchase_cost_rate`
 - `appraisal_value`
 
+Configuration-resolution inputs may include:
+
+- `territory`
+- `property_type`
+
+These variables are used only to resolve versioned configuration such as purchase-cost assumptions. They are not consumed directly by financial formulas.
+
 Additional scenario metadata may include:
 
 - `scenario_id`
@@ -182,6 +189,8 @@ If `calculation_required = true` and `fallback_available = true`, calculation ma
 3. the assumption is recorded in `CalculationMetadata`.
 
 If `calculation_required = false` and `fallback_available = false`, the input is optional. Its absence does not block calculation and may activate an explicitly documented alternative calculation path.
+
+If `calculation_required = false` and `fallback_available = true`, the input is optional. Its absence may trigger an explicitly documented default or resolution behaviour that does not represent a required financial input.
 
 Examples:
 
@@ -524,9 +533,10 @@ Owned by the Financial Engine.
 
 Expected responsibilities include:
 
-- reference interest rate,
-- provisional mortgage term,
-- purchase-cost assumptions where applicable,
+- `interest_rate_reference`,
+- `term_years_reference`,
+- `desired_cash_buffer_reference`,
+- purchase-cost hierarchy by territory/property type with territory and global defaults,
 - configuration version,
 - source/reference metadata,
 - validation-for-production status.

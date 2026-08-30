@@ -54,6 +54,8 @@ Derived rule:
   calculation may continue using the documented fallback, but the fallback must be recorded in `CalculationMetadata`.
 - `calculation_required = false` and `fallback_available = false`:
   the input is optional; its absence does not block calculation and may activate an explicitly documented alternative calculation path.
+- `calculation_required = false` and `fallback_available = true`:
+  the input is optional; if absent, the system may apply an explicitly documented default or resolution behaviour that does not represent a required financial input.
 - A numeric zero is not equivalent to a missing value.
 
 ---
@@ -73,6 +75,8 @@ Derived rule:
 | `interest_rate_annual` | Annual nominal rate used to evaluate the scenario | Both | Client / adviser / product scenario | Decimal or None | Decimal ratio, >= 0 | No | Yes | Yes | Use `interest_rate_reference` from `financial_defaults.yaml`; record fallback | Financial Engine |
 | `term_years` | Mortgage term | Both | Client / adviser | Integer or None | Years, > 0 | No | Yes | Yes | Use versioned `term_years_reference` from `financial_defaults.yaml`; record `TERM_REFERENCE` assumption | Financial Engine |
 | `purchase_cost_rate` | Estimated purchase costs as a proportion of property price | Both | Scenario or configuration hierarchy | Decimal | Decimal ratio, >= 0 | No | Yes | Yes | Use explicit scenario value if supplied; otherwise resolve from versioned configuration hierarchy and record `PURCHASE_COST_RATE_REFERENCE` | Financial Engine |
+| `territory` | Geographic context used to resolve configuration such as purchase-cost assumptions | Both | Client / adviser / property context | String or None | Controlled territory identifier | No | No | No | Optional configuration-resolution input; if absent, hierarchy may fall through to `global_default` | Financial Engine configuration resolution |
+| `property_type` | Property category used to resolve configuration such as purchase-cost assumptions | Both | Client / adviser / property context | String or None | Controlled property-type identifier | No | No | No | Optional configuration-resolution input; if absent, hierarchy may fall through to territory or global defaults | Financial Engine configuration resolution |
 | `appraisal_value` | Property appraisal value when available | Pro primarily | Client / adviser / appraisal source | Decimal or None | EUR, > 0 | No | No | No | If absent, calculate `ltv_provisional` using `property_price`; no appraisal value is substituted | Financial Engine |
 | `num_borrowers` | Number of borrowers in the scenario | Both | Client / adviser | Integer | >= 1 | No | No | Yes | Default scenario representation may use 1 if not otherwise specified; not consumed by Financial Engine v1 formulas | Simulation / Rules / metadata |
 | `age_oldest_borrower` | Age of oldest borrower | Pro | Client / adviser | Integer or None | Years | No | No | No | Not consumed by Financial Engine v1 formulas | Future Rules / Simulation |
@@ -83,16 +87,18 @@ Derived rule:
 
 These variables are calculated by the Financial Engine and must not be manually supplied as substitutes for the corresponding calculations.
 
+Any derived output may return `None` when one of its required dependencies cannot be resolved. This does not invalidate unrelated outputs; dependency-aware partial results are permitted according to the Financial Engine Specification.
+
 | Variable | Definition | Type | Unit | Main consumer |
 |---|---|---|---|---|
-| `purchase_costs` | `property_price × purchase_cost_rate` | Decimal | EUR | Financial Engine / UI |
-| `available_cash_for_operation` | `available_savings − desired_cash_buffer` | Decimal | EUR | Financial Engine |
-| `required_loan` | `property_price − planned_down_payment` | Decimal | EUR | Financial Engine / Simulation / Recommendation |
-| `financed_amount` | If `requested_loan_amount` exists, use it; otherwise use `required_loan` | Decimal | EUR | Payment, LTV, DSTI and interest calculations |
+| `purchase_costs` | `property_price × purchase_cost_rate` | Decimal or None | EUR | Financial Engine / UI |
+| `available_cash_for_operation` | `available_savings − desired_cash_buffer` | Decimal or None | EUR | Financial Engine |
+| `required_loan` | `property_price − planned_down_payment` | Decimal or None | EUR | Financial Engine / Simulation / Recommendation |
+| `financed_amount` | If `requested_loan_amount` exists, use it; otherwise use `required_loan` | Decimal or None | EUR | Payment, LTV, DSTI and interest calculations |
 | `loan_gap` | `required_loan − requested_loan_amount`, when requested amount exists | Decimal or None | EUR | Financial Engine / Rules / Recommendation |
-| `total_cash_required` | `planned_down_payment + purchase_costs` | Decimal | EUR | Financial Engine |
-| `cash_gap` | `max(0, total_cash_required − available_cash_for_operation)` | Decimal | EUR | Financial Engine / Rules / Recommendation |
-| `residual_savings` | `available_savings − planned_down_payment − purchase_costs` | Decimal | EUR | Financial Engine / UI |
+| `total_cash_required` | `planned_down_payment + purchase_costs` | Decimal or None | EUR | Financial Engine |
+| `cash_gap` | `max(0, total_cash_required − available_cash_for_operation)` | Decimal or None | EUR | Financial Engine / Rules / Recommendation |
+| `residual_savings` | `available_savings − planned_down_payment − purchase_costs` | Decimal or None | EUR | Financial Engine / UI |
 | `monthly_payment` | French amortization payment calculated using `financed_amount` | Decimal or None | EUR/month | Financial Engine |
 | `ltv` | `financed_amount / min(property_price, appraisal_value)` when appraisal exists | Decimal or None | Ratio | Financial Engine / Rules |
 | `ltv_provisional` | `financed_amount / property_price` when appraisal is absent | Decimal or None | Ratio | Financial Engine / Rules |
@@ -208,8 +214,9 @@ Owned by the Financial Engine.
 Expected to contain values such as:
 
 - `interest_rate_reference`
-- provisional `term_years_reference`
-- default purchase-cost assumptions where applicable
+- `term_years_reference`
+- `desired_cash_buffer_reference`
+- purchase-cost hierarchy: `territory + property_type` → `territory_default` → `global_default`
 - configuration version metadata
 
 These values may affect calculated financial outputs.
@@ -286,7 +293,7 @@ The following points require cross-checking against the reconciled Financial Eng
 3. CLOSED — `planned_down_payment` must satisfy `0 <= planned_down_payment <= property_price`. Values above `property_price` are invalid and must not be silently capped or corrected.
 4. CLOSED — Missing `desired_cash_buffer` uses versioned `desired_cash_buffer_reference` from `financial_defaults.yaml`; the fallback is recorded as `DESIRED_CASH_BUFFER_REFERENCE` and must not be hardcoded in engine logic.
 5. CLOSED — Missing `term_years` uses versioned `term_years_reference` from `financial_defaults.yaml`; the fallback is recorded as `TERM_REFERENCE` and must not be hardcoded in engine logic.
-6. CLOSED — `purchase_cost_rate` uses explicit scenario value when supplied; otherwise resolve from `financial_defaults.yaml` using priority: `territory + property_type` → `territory_default` → `global_default`. Configured resolution is recorded as `PURCHASE_COST_RATE_REFERENCE`; if no valid configured value exists, the affected calculation cannot proceed.
+6. CLOSED — `purchase_cost_rate` uses explicit scenario value when supplied; otherwise resolve from `financial_defaults.yaml` using priority: `territory + property_type` → `territory_default` → `global_default`. `territory` and `property_type` are configuration-resolution inputs, not financial formula variables. Configured resolution is recorded as `PURCHASE_COST_RATE_REFERENCE`; if no valid configured value exists, the affected calculation cannot proceed.
 7. CLOSED — `num_borrowers` may remain in `FinancialScenario` as contextual metadata but is not consumed by Financial Engine v1 formulas. It may be used by Simulation/Rules or future layers.
 8. CLOSED — `technical_confidence` uses controlled values `HIGH`, `MEDIUM`, `LOW`: partial calculation → `LOW`; otherwise controlled fallbacks and/or provisional calculation modes → `MEDIUM`; otherwise → `HIGH`. It is not a financial-risk or approval score.
 
