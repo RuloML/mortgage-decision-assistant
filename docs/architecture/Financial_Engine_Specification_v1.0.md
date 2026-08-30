@@ -200,9 +200,21 @@ Examples:
 
 `purchase_costs = property_price × purchase_cost_rate`
 
-`purchase_cost_rate` may be supplied by the scenario or resolved through configuration.
+If `purchase_cost_rate` is supplied explicitly by the scenario, that value is used.
 
-If a configured fallback is used, it must be recorded in `CalculationMetadata`.
+If it is missing, Financial Engine v1 resolves it from the versioned `financial_defaults.yaml` hierarchy in this order:
+
+1. `territory + property_type`
+2. `territory_default`
+3. `global_default`
+
+When a configured value is used, the engine must record:
+
+`AssumptionType.PURCHASE_COST_RATE_REFERENCE`
+
+The resolved configuration version must be traceable through `CalculationMetadata`.
+
+If no valid configured value exists, `purchase_costs` cannot be calculated and the engine must not invent or hardcode a rate.
 
 ### 6.2 Cash available for the operation
 
@@ -764,17 +776,19 @@ The applied fallback must be recorded as:
 
 The numeric fallback value belongs to configuration and must not be hardcoded in Financial Engine logic.
 
-### O-06 — Purchase-cost configuration hierarchy
+### O-06 – Purchase-cost configuration hierarchy
 
-Define how purchase-cost assumptions are selected based on:
+**CLOSED** — `purchase_cost_rate` uses the explicit scenario value when supplied.
 
-- territory,
-- property type,
-- transaction type,
-- or a generic development fallback.
+If missing, Financial Engine v1 resolves it from `financial_defaults.yaml` using this priority:
 
-No current configuration value should be represented as legal or tax truth until validated.
+1. `territory + property_type`
+2. `territory_default`
+3. `global_default`
 
+Configured resolution must be recorded as `AssumptionType.PURCHASE_COST_RATE_REFERENCE`.
+
+If no valid configured value exists, the affected purchase-cost calculation cannot proceed. No rate may be silently invented or hardcoded.
 
 ### O-07 — `num_borrowers`
 
