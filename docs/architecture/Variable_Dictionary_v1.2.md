@@ -93,12 +93,12 @@ These variables are calculated by the Financial Engine and must not be manually 
 | `total_cash_required` | `planned_down_payment + purchase_costs` | Decimal | EUR | Financial Engine |
 | `cash_gap` | `max(0, total_cash_required − available_cash_for_operation)` | Decimal | EUR | Financial Engine / Rules / Recommendation |
 | `residual_savings` | `available_savings − planned_down_payment − purchase_costs` | Decimal | EUR | Financial Engine / UI |
-| `monthly_payment` | French amortization payment calculated using `financed_amount` | Decimal | EUR/month | Financial Engine |
-| `ltv` | `financed_amount / min(property_price, appraisal_value)` when appraisal exists | Decimal | Ratio | Financial Engine / Rules |
-| `ltv_provisional` | `financed_amount / property_price` when appraisal is absent | Decimal | Ratio | Financial Engine / Rules |
-| `dsti` | `(monthly_payment + current_monthly_debt) / monthly_net_income` | Decimal | Ratio | Financial Engine / Rules |
-| `monthly_margin` | `monthly_net_income − current_monthly_debt − monthly_payment` | Decimal | EUR/month | Financial Engine / UI |
-| `total_interest` | Total scheduled payments minus `financed_amount` | Decimal | EUR | Financial Engine / UI |
+| `monthly_payment` | French amortization payment calculated using `financed_amount` | Decimal or None | EUR/month | Financial Engine |
+| `ltv` | `financed_amount / min(property_price, appraisal_value)` when appraisal exists | Decimal or None | Ratio | Financial Engine / Rules |
+| `ltv_provisional` | `financed_amount / property_price` when appraisal is absent | Decimal or None | Ratio | Financial Engine / Rules |
+| `dsti` | `(monthly_payment + current_monthly_debt) / monthly_net_income` | Decimal or None | Ratio | Financial Engine / Rules |
+| `monthly_margin` | `monthly_net_income − current_monthly_debt − monthly_payment` | Decimal or None | EUR/month | Financial Engine / UI |
+| `total_interest` | Total scheduled payments minus `financed_amount` | Decimal or None | EUR | Financial Engine / UI |
 
 ---
 

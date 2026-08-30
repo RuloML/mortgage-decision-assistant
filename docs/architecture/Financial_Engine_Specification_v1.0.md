@@ -826,29 +826,54 @@ It represents calculation-quality confidence only and must not be interpreted as
 
 ### O-09 — Partial results
 
-Define which outputs may still be returned when one calculation is blocked.
+**CLOSED** — Financial Engine v1 uses dependency-aware partial results.
 
-Example:
+If one calculation is blocked by missing or invalid required information, outputs that do not depend on that information remain valid and must still be returned.
 
-- unknown `current_monthly_debt` may block DSTI and monthly margin,
-- while purchase costs, cash structure, required loan, financed amount and LTV may still remain valid.
+Outputs whose dependencies cannot be resolved return `None`.
 
+Example: unknown `current_monthly_debt` blocks `dsti` and `monthly_margin`, but does not invalidate purchase costs, cash structure, required loan, financed amount or LTV.
+
+When any expected output is blocked:
+
+`calculation_completeness = PARTIAL`
+
+The blocking input or validation condition must be recorded in `CalculationMetadata`.
 
 ### O-10 — Zero financed amount
 
-Define monthly-payment and ratio behaviour when:
+**CLOSED** — `financed_amount = 0` is a valid financial state.
 
-`financed_amount = 0`
+The Financial Engine must return:
 
-The implementation must avoid invalid amortization or ratio calculations and return a controlled result.
+- `monthly_payment = 0`
+- `total_interest = 0`
+- `ltv = 0` when appraisal-based LTV is applicable
+- `ltv_provisional = 0` when the provisional LTV path is applicable
+
+The amortization formula must not be evaluated with zero financed capital.
+
+If income and current debt inputs are valid:
+
+`dsti = current_monthly_debt / monthly_net_income`
+
+and:
+
+`monthly_margin = monthly_net_income - current_monthly_debt`
+
+A zero financed amount therefore does not by itself make the calculation partial.
 
 ### O-11 — Negative available cash
 
-Confirm whether:
+**CLOSED** — `available_cash_for_operation < 0` is retained as signed financial information.
 
-`available_cash_for_operation < 0`
+It means that `desired_cash_buffer` exceeds `available_savings`.
 
-is retained as signed financial information or handled through a validation state.
+The Financial Engine must not silently floor this value to zero and must not treat it as an invalid technical input.
+
+The signed value continues through the documented cash-structure calculations so that `cash_gap` reflects the shortfall required to execute the scenario while preserving the desired buffer.
+
+Risk interpretation belongs to the Rules Engine.
 
 ---
 
