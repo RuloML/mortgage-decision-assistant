@@ -285,6 +285,8 @@ Interpretation:
 
 The Financial Engine reports the signed value but does not classify whether it is acceptable.
 
+A negative `loan_gap` must be preserved as a negative value. Financial Engine v1 does not create a separate `loan_surplus` variable because that would duplicate the same information with inverted sign.
+
 If `requested_loan_amount` is absent:
 
 `loan_gap = None`
@@ -694,11 +696,11 @@ The following decisions are considered closed for the reconciled draft:
 
 ## 17. Open items before Level A
 
-### O-01 — Negative `loan_gap`
+### O-01 – Negative `loan_gap`
 
-Confirm whether the Financial Engine only reports the signed value or also provides a separate surplus field.
+**CLOSED** — The Financial Engine reports the signed `loan_gap` value only.
 
-Current proposal: keep signed `loan_gap`; no duplicate surplus variable.
+Negative values are preserved as negative values. No separate `loan_surplus` field is introduced because it would duplicate the same information with inverted sign.
 
 ### O-02 — Signed cash balance
 
