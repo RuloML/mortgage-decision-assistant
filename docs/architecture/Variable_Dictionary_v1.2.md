@@ -271,7 +271,7 @@ Variable Dictionary v1.2 introduces or formalizes:
 The following points require cross-checking against the reconciled Financial Engine Specification before this dictionary may be marked Level A:
 
 1. CLOSED — Negative `loan_gap` is preserved as a signed value; no separate `loan_surplus` variable is introduced.
-2. Confirm whether `cash_gap` should remain floored at zero while a separate signed cash balance is retained.
+2. CLOSED — `cash_gap` remains floored at zero. No separate signed cash-balance variable is introduced in v1 because `residual_savings` and `desired_cash_buffer` already preserve the information required to evaluate remaining liquidity.
 3. Confirm validation rule for `planned_down_payment > property_price`.
 4. Confirm exact fallback policy for `desired_cash_buffer`.
 5. Confirm exact provisional fallback for `term_years`.

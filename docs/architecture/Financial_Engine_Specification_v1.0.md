@@ -702,13 +702,15 @@ The following decisions are considered closed for the reconciled draft:
 
 Negative values are preserved as negative values. No separate `loan_surplus` field is introduced because it would duplicate the same information with inverted sign.
 
-### O-02 — Signed cash balance
+### O-02 – Signed cash balance
 
-Current `cash_gap` is floored at zero.
+**CLOSED** — `cash_gap` remains a non-negative shortfall indicator:
 
-Decide whether to also expose a signed variable such as:
+`cash_gap = max(0, total_cash_required - available_cash_for_operation)`
 
-`cash_balance_after_structure = available_cash_for_operation - total_cash_required`
+Financial Engine v1 does not introduce an additional signed cash-balance variable.
+
+`residual_savings` and `desired_cash_buffer` already preserve the information needed to evaluate whether the scenario leaves liquidity above or below the desired retained buffer.
 
 ### O-03 — Planned down payment greater than property price
 
