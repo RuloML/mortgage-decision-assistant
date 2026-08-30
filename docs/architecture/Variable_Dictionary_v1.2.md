@@ -147,7 +147,7 @@ The Financial Engine must return a `CalculationMetadata` structure containing, a
 | `assumptions` | Controlled assumptions applied during calculation |
 | `fallbacks_applied` | Explicit fallback values used |
 | `calculation_completeness` | Complete or partial result |
-| `technical_confidence` | Technical confidence based on input/fallback quality |
+| `technical_confidence` | Controlled technical-confidence level based on calculation completeness, fallbacks and provisional calculation modes |
 | `engine_version` | Financial Engine version |
 | `variable_dictionary_version` | Version of this dictionary |
 | `defaults_config_version` | Version of `financial_defaults.yaml` used |
@@ -184,6 +184,16 @@ Initial v1 candidate:
 An explicitly declared `current_monthly_debt = 0` is a factual input, not an assumption.
 
 An unknown debt value (`None`) must never generate `DEBT_ASSUMED_ZERO`.
+
+## Technical confidence
+
+`technical_confidence` uses the controlled values:
+
+- `HIGH`: calculation is complete and uses no material fallback or provisional calculation mode.
+- `MEDIUM`: calculation is complete but uses one or more controlled fallbacks and/or provisional calculation modes.
+- `LOW`: calculation is partial or relevant required information is unresolved.
+
+This is a technical quality indicator only. It is not a financial-risk score and must not be interpreted as approval probability.
 
 ---
 
@@ -278,7 +288,7 @@ The following points require cross-checking against the reconciled Financial Eng
 5. CLOSED — Missing `term_years` uses versioned `term_years_reference` from `financial_defaults.yaml`; the fallback is recorded as `TERM_REFERENCE` and must not be hardcoded in engine logic.
 6. CLOSED — `purchase_cost_rate` uses explicit scenario value when supplied; otherwise resolve from `financial_defaults.yaml` using priority: `territory + property_type` → `territory_default` → `global_default`. Configured resolution is recorded as `PURCHASE_COST_RATE_REFERENCE`; if no valid configured value exists, the affected calculation cannot proceed.
 7. CLOSED — `num_borrowers` may remain in `FinancialScenario` as contextual metadata but is not consumed by Financial Engine v1 formulas. It may be used by Simulation/Rules or future layers.
-8. Confirm technical confidence scale and controlled values.
+8. CLOSED — `technical_confidence` uses controlled values `HIGH`, `MEDIUM`, `LOW`: partial calculation → `LOW`; otherwise controlled fallbacks and/or provisional calculation modes → `MEDIUM`; otherwise → `HIGH`. It is not a financial-risk or approval score.
 
 Until these points are reconciled, status remains:
 

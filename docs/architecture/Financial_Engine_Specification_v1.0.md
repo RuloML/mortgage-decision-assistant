@@ -502,7 +502,15 @@ Calculation quality must be returned through `CalculationMetadata`, including:
 - `defaults_config_version`
 - `calculation_modes`
 
-The exact controlled values for completeness and confidence remain open before Level A.
+`technical_confidence` uses the controlled values `HIGH`, `MEDIUM`, and `LOW`.
+
+Deterministic v1 resolution:
+
+1. partial calculation or unresolved required information → `LOW`
+2. otherwise, one or more controlled fallbacks and/or provisional calculation modes → `MEDIUM`
+3. otherwise → `HIGH`
+
+`technical_confidence` represents calculation-quality confidence only. It is not a financial-risk score, recommendation score, or approval probability.
 
 ---
 
@@ -800,17 +808,21 @@ Financial Engine v1 does not consume it in any financial formula.
 
 It may be used by Simulation, Rules or future layers. `monthly_net_income` is already supplied to the Financial Engine as a resolved input and is not recalculated from borrower count.
 
-### O-08 — Technical confidence
+### O-08 – Technical confidence
 
-Define controlled values and derivation logic for `technical_confidence`.
-
-Possible values may be:
+**CLOSED** — `technical_confidence` uses the controlled values:
 
 - `HIGH`
 - `MEDIUM`
 - `LOW`
 
-These labels must represent input/fallback quality only and must not imply a probability of mortgage approval.
+Deterministic v1 resolution:
+
+1. partial calculation or unresolved required information → `LOW`
+2. otherwise, controlled fallbacks and/or provisional calculation modes → `MEDIUM`
+3. otherwise → `HIGH`
+
+It represents calculation-quality confidence only and must not be interpreted as financial risk or approval probability.
 
 ### O-09 — Partial results
 
