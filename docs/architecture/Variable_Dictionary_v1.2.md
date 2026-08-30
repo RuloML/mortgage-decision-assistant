@@ -4,9 +4,9 @@
 > Reconstruido a partir del historial de diseño del Sprint 2 y reconciliado durante el Sprint 3 antes de la implementación del Financial Engine.
 >
 > **Provenance:** RECONCILED
-> **Maturity:** DRAFT
+> **Maturity:** LEVEL A
 >
-> Este documento no debe considerarse Level A hasta completar la revisión cruzada contra `Financial_Engine_Specification_v1.0.md` y confirmar que no existen contradicciones materiales entre ambos artefactos.
+> Level A alcanzado tras completar la revisión cruzada contra `Financial_Engine_Specification_v1.0.md` y cerrar las contradicciones materiales identificadas.
 
 ---
 
@@ -297,7 +297,7 @@ The following points require cross-checking against the reconciled Financial Eng
 7. CLOSED — `num_borrowers` may remain in `FinancialScenario` as contextual metadata but is not consumed by Financial Engine v1 formulas. It may be used by Simulation/Rules or future layers.
 8. CLOSED — `technical_confidence` uses controlled values `HIGH`, `MEDIUM`, `LOW`: partial calculation → `LOW`; otherwise controlled fallbacks and/or provisional calculation modes → `MEDIUM`; otherwise → `HIGH`. It is not a financial-risk or approval score.
 
-Until these points are reconciled, status remains:
+Final reconciliation status:
 
 **Provenance: RECONCILED**
-**Maturity: DRAFT**
+**Maturity: LEVEL A**

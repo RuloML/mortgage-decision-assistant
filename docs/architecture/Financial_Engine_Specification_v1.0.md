@@ -4,9 +4,9 @@
 > Reconstruido a partir del historial de diseño del Sprint 2, del DRR v1.1 y de la reconciliación realizada durante el Sprint 3 antes de la implementación del Financial Engine.
 >
 > **Provenance:** RECONCILED  
-> **Maturity:** DRAFT
+> **Maturity:** LEVEL A
 >
-> Este documento no debe considerarse Level A hasta completar la revisión cruzada contra `Variable_Dictionary_v1.2.md` y resolver los puntos abiertos indicados al final.
+> Level A alcanzado tras completar la revisión cruzada contra `Variable_Dictionary_v1.2.md` y cerrar los puntos abiertos identificados.
 
 ---
 
@@ -887,7 +887,7 @@ Risk interpretation belongs to the Rules Engine.
 
 ---
 
-Until these items are reconciled:
+Final reconciliation status:
 
 **Provenance: RECONCILED**  
-**Maturity: DRAFT**
+**Maturity: LEVEL A**
