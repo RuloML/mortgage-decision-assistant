@@ -74,7 +74,7 @@ Derived rule:
 | `term_years` | Mortgage term | Both | Client / adviser | Integer or None | Years, > 0 | No | Yes | Yes | Use versioned `term_years_reference` from `financial_defaults.yaml`; record `TERM_REFERENCE` assumption | Financial Engine |
 | `purchase_cost_rate` | Estimated purchase costs as a proportion of property price | Both | Scenario or configuration hierarchy | Decimal | Decimal ratio, >= 0 | No | Yes | Yes | Use explicit scenario value if supplied; otherwise resolve from versioned configuration hierarchy and record `PURCHASE_COST_RATE_REFERENCE` | Financial Engine |
 | `appraisal_value` | Property appraisal value when available | Pro primarily | Client / adviser / appraisal source | Decimal or None | EUR, > 0 | No | No | No | If absent, calculate `ltv_provisional` using `property_price`; no appraisal value is substituted | Financial Engine |
-| `num_borrowers` | Number of borrowers in the scenario | Both | Client / adviser | Integer | >= 1 | No | No | Yes | Default scenario representation may use 1 if not otherwise specified | Simulation / metadata |
+| `num_borrowers` | Number of borrowers in the scenario | Both | Client / adviser | Integer | >= 1 | No | No | Yes | Default scenario representation may use 1 if not otherwise specified; not consumed by Financial Engine v1 formulas | Simulation / Rules / metadata |
 | `age_oldest_borrower` | Age of oldest borrower | Pro | Client / adviser | Integer or None | Years | No | No | No | Not consumed by Financial Engine v1 formulas | Future Rules / Simulation |
 
 ---
@@ -277,7 +277,7 @@ The following points require cross-checking against the reconciled Financial Eng
 4. CLOSED — Missing `desired_cash_buffer` uses versioned `desired_cash_buffer_reference` from `financial_defaults.yaml`; the fallback is recorded as `DESIRED_CASH_BUFFER_REFERENCE` and must not be hardcoded in engine logic.
 5. CLOSED — Missing `term_years` uses versioned `term_years_reference` from `financial_defaults.yaml`; the fallback is recorded as `TERM_REFERENCE` and must not be hardcoded in engine logic.
 6. CLOSED — `purchase_cost_rate` uses explicit scenario value when supplied; otherwise resolve from `financial_defaults.yaml` using priority: `territory + property_type` → `territory_default` → `global_default`. Configured resolution is recorded as `PURCHASE_COST_RATE_REFERENCE`; if no valid configured value exists, the affected calculation cannot proceed.
-7. Confirm whether `num_borrowers` belongs in Financial Engine v1 scenario metadata or only in the Simulation/Rules layers.
+7. CLOSED — `num_borrowers` may remain in `FinancialScenario` as contextual metadata but is not consumed by Financial Engine v1 formulas. It may be used by Simulation/Rules or future layers.
 8. Confirm technical confidence scale and controlled values.
 
 Until these points are reconciled, status remains:

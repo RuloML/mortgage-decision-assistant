@@ -145,6 +145,8 @@ Additional scenario metadata may include:
 - `num_borrowers`
 - `age_oldest_borrower`
 
+`num_borrowers` is contextual metadata in Financial Engine v1 and is not consumed by financial formulas. It may be used by Simulation, Rules or future layers.
+
 `monthly_variable_income` and `other_verified_income` are excluded from Financial Engine v1 calculation logic.
 
 The engine receives one already-resolved value:
@@ -790,9 +792,13 @@ Configured resolution must be recorded as `AssumptionType.PURCHASE_COST_RATE_REF
 
 If no valid configured value exists, the affected purchase-cost calculation cannot proceed. No rate may be silently invented or hardcoded.
 
-### O-07 — `num_borrowers`
+### O-07 – `num_borrowers`
 
-Confirm whether `num_borrowers` belongs inside `FinancialScenario` v1 metadata or should be consumed only by Simulation/Rules layers.
+**CLOSED** — `num_borrowers` may remain in `FinancialScenario` as contextual metadata.
+
+Financial Engine v1 does not consume it in any financial formula.
+
+It may be used by Simulation, Rules or future layers. `monthly_net_income` is already supplied to the Financial Engine as a resolved input and is not recalculated from borrower count.
 
 ### O-08 — Technical confidence
 
