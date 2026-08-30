@@ -210,6 +210,14 @@ If a configured fallback is used, it must be recorded in `CalculationMetadata`.
 
 This represents the amount the client can use without consuming the desired retained cash buffer.
 
+If `desired_cash_buffer` is missing, Financial Engine v1 resolves it using the versioned `desired_cash_buffer_reference` from `financial_defaults.yaml`.
+
+The engine must record:
+
+`AssumptionType.DESIRED_CASH_BUFFER_REFERENCE`
+
+The fallback value must not be hardcoded in calculation logic.
+
 A negative value is possible if the desired cash buffer exceeds available savings and must not be silently converted to zero.
 
 ---
@@ -728,14 +736,15 @@ A value equal to `property_price` is valid and produces `required_loan = 0`.
 
 A value above `property_price` is invalid input and must not be silently capped or corrected.
 
-### O-04 — Desired cash buffer fallback
+### O-04 – Desired cash buffer fallback
 
-Define:
+**CLOSED** — Missing `desired_cash_buffer` is resolved using the versioned `desired_cash_buffer_reference` from `financial_defaults.yaml`.
 
-- exact fallback value,
-- configuration ownership,
-- Lite behaviour,
-- corresponding assumption type.
+The applied fallback must be recorded as:
+
+`AssumptionType.DESIRED_CASH_BUFFER_REFERENCE`
+
+The numeric fallback value belongs to configuration and must not be hardcoded in Financial Engine logic.
 
 ### O-05 — Term fallback
 
