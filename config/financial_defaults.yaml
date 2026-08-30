@@ -1,0 +1,9 @@
+version: "dev-1"
+validation_status: "development_only"
+
+interest_rate_reference: "0.03"
+term_years_reference: 30
+desired_cash_buffer_reference: "20000"
+
+purchase_cost_rate:
+  global_default: "0.10"

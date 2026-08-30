@@ -1,6 +1,7 @@
 from decimal import Decimal, localcontext
 from typing import Optional
 
+from .config import FinancialDefaults
 from .domain import (
     AssumptionType,
     CalculationCompleteness,
@@ -52,6 +53,7 @@ def _monthly_payment(
 
 def calculate_financial_scenario(
     scenario: FinancialScenario,
+    defaults: Optional[FinancialDefaults] = None,
 ) -> FinancialResult:
 
     assumptions: list[AssumptionType] = []
@@ -78,21 +80,53 @@ def calculate_financial_scenario(
         validation_errors.append("current_monthly_debt")
 
     # --------------------------------------------------------
-    # Values that currently require explicit input because
-    # financial_defaults.yaml is intentionally not frozen yet.
+    # Resolve controlled configuration fallbacks
     # --------------------------------------------------------
 
-    if scenario.desired_cash_buffer is None:
-        missing_inputs.append("desired_cash_buffer")
+    desired_cash_buffer = scenario.desired_cash_buffer
+    purchase_cost_rate = scenario.purchase_cost_rate
+    interest_rate_annual = scenario.interest_rate_annual
+    term_years = scenario.term_years
 
-    if scenario.purchase_cost_rate is None:
-        missing_inputs.append("purchase_cost_rate")
+    if desired_cash_buffer is None:
+        if defaults is not None:
+            desired_cash_buffer = defaults.desired_cash_buffer_reference
+            assumptions.append(
+                AssumptionType.DESIRED_CASH_BUFFER_REFERENCE
+            )
+        else:
+            missing_inputs.append("desired_cash_buffer")
 
-    if scenario.interest_rate_annual is None:
-        missing_inputs.append("interest_rate_annual")
+    if purchase_cost_rate is None:
+        if defaults is not None:
+            purchase_cost_rate = (
+                defaults.purchase_cost_rate_global_default
+            )
+            assumptions.append(
+                AssumptionType.PURCHASE_COST_RATE_REFERENCE
+            )
+        else:
+            missing_inputs.append("purchase_cost_rate")
 
-    if scenario.term_years is None:
-        missing_inputs.append("term_years")
+    if interest_rate_annual is None:
+        if defaults is not None:
+            interest_rate_annual = (
+                defaults.interest_rate_reference
+            )
+            assumptions.append(
+                AssumptionType.INTEREST_RATE_REFERENCE
+            )
+        else:
+            missing_inputs.append("interest_rate_annual")
+
+    if term_years is None:
+        if defaults is not None:
+            term_years = defaults.term_years_reference
+            assumptions.append(
+                AssumptionType.TERM_REFERENCE
+            )
+        else:
+            missing_inputs.append("term_years")
 
     # --------------------------------------------------------
     # Purchase costs
@@ -102,16 +136,16 @@ def calculate_financial_scenario(
 
     if (
         scenario.property_price > ZERO
-        and scenario.purchase_cost_rate is not None
-        and scenario.purchase_cost_rate >= ZERO
+        and purchase_cost_rate is not None
+        and purchase_cost_rate >= ZERO
     ):
         purchase_costs = (
             scenario.property_price
-            * scenario.purchase_cost_rate
+            * purchase_cost_rate
         )
     elif (
-        scenario.purchase_cost_rate is not None
-        and scenario.purchase_cost_rate < ZERO
+        purchase_cost_rate is not None
+        and purchase_cost_rate < ZERO
     ):
         validation_errors.append("purchase_cost_rate")
 
@@ -121,13 +155,13 @@ def calculate_financial_scenario(
 
     available_cash_for_operation = None
 
-    if scenario.desired_cash_buffer is not None:
-        if scenario.desired_cash_buffer < ZERO:
+    if desired_cash_buffer is not None:
+        if desired_cash_buffer < ZERO:
             validation_errors.append("desired_cash_buffer")
         else:
             available_cash_for_operation = (
                 scenario.available_savings
-                - scenario.desired_cash_buffer
+                - desired_cash_buffer
             )
 
     # --------------------------------------------------------
@@ -251,8 +285,8 @@ def calculate_financial_scenario(
 
     monthly_payment = _monthly_payment(
         financed_amount,
-        scenario.interest_rate_annual,
-        scenario.term_years,
+        interest_rate_annual,
+        term_years,
     )
 
     # --------------------------------------------------------
@@ -319,12 +353,12 @@ def calculate_financial_scenario(
     if (
         monthly_payment is not None
         and financed_amount is not None
-        and scenario.term_years is not None
-        and scenario.term_years > 0
+        and term_years is not None
+        and term_years > 0
     ):
         total_interest = (
             monthly_payment
-            * Decimal(scenario.term_years * 12)
+            * Decimal(term_years * 12)
             - financed_amount
         )
 
@@ -376,6 +410,9 @@ def calculate_financial_scenario(
         fallbacks_applied=tuple(a.value for a in assumptions),
         calculation_completeness=completeness,
         technical_confidence=technical_confidence,
+        defaults_config_version=(
+            defaults.version if defaults is not None else None
+        ),
         calculation_modes=tuple(calculation_modes),
         validation_errors=tuple(dict.fromkeys(validation_errors)),
     )

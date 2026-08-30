@@ -2,6 +2,7 @@ import csv
 from decimal import Decimal
 from pathlib import Path
 
+from mortgage_decision_assistant.config import load_financial_defaults
 from mortgage_decision_assistant.domain import FinancialScenario
 from mortgage_decision_assistant.financial_engine import (
     calculate_financial_scenario,
@@ -32,7 +33,9 @@ def test_financial_engine_against_golden_cases():
     with GOLDEN.open(encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
-    assert len(rows) == 13
+    assert len(rows) == 17
+
+    defaults = load_financial_defaults()
 
     for row in rows:
 
@@ -65,7 +68,10 @@ def test_financial_engine_against_golden_cases():
             ),
         )
 
-        result = calculate_financial_scenario(scenario)
+        result = calculate_financial_scenario(
+            scenario,
+            defaults=defaults,
+        )
 
         fields = [
             "purchase_costs",
