@@ -184,7 +184,7 @@ If `calculation_required = false` and `fallback_available = false`, the input is
 Examples:
 
 - missing `interest_rate_annual` → use configured reference rate;
-- missing `term_years` → use configured provisional term;
+- missing `term_years` → use versioned `term_years_reference` from `financial_defaults.yaml` and record `AssumptionType.TERM_REFERENCE`;
 - missing `planned_down_payment` → derive the documented fallback;
 - missing `appraisal_value` → do not substitute an appraisal value; calculate provisional LTV using `property_price` and record the alternative calculation mode.
 
@@ -341,6 +341,14 @@ This allows the engine to show whether the planned structure preserves, exceeds 
 ---
 
 ### 6.11 Monthly mortgage payment
+
+If `term_years` is missing, Financial Engine v1 resolves it using the versioned `term_years_reference` from `financial_defaults.yaml`.
+
+The engine must record:
+
+`AssumptionType.TERM_REFERENCE`
+
+The fallback term must not be hardcoded in calculation logic.
 
 The monthly payment uses the French amortization formula.
 
@@ -746,9 +754,15 @@ The applied fallback must be recorded as:
 
 The numeric fallback value belongs to configuration and must not be hardcoded in Financial Engine logic.
 
-### O-05 — Term fallback
+### O-05 – Term fallback
 
-Confirm the provisional `term_years_reference` and its source/status.
+**CLOSED** — Missing `term_years` is resolved using the versioned `term_years_reference` from `financial_defaults.yaml`.
+
+The applied fallback must be recorded as:
+
+`AssumptionType.TERM_REFERENCE`
+
+The numeric fallback value belongs to configuration and must not be hardcoded in Financial Engine logic.
 
 ### O-06 — Purchase-cost configuration hierarchy
 

@@ -71,7 +71,7 @@ Derived rule:
 | `current_monthly_debt` | Current recurring monthly debt payments | Both | Client / adviser | Decimal or None | EUR/month, >= 0 | Yes | Yes | No | Unknown must remain `None`; must never be silently converted to 0 | Financial Engine |
 | `requested_loan_amount` | Mortgage amount the client intends to request | Both | Client / adviser | Decimal or None | EUR, > 0 | No | No | Yes | If absent, `financed_amount = required_loan` | Financial Engine |
 | `interest_rate_annual` | Annual nominal rate used to evaluate the scenario | Both | Client / adviser / product scenario | Decimal or None | Decimal ratio, >= 0 | No | Yes | Yes | Use `interest_rate_reference` from `financial_defaults.yaml`; record fallback | Financial Engine |
-| `term_years` | Mortgage term | Both | Client / adviser | Integer or None | Years, > 0 | No | Yes | Yes | Use provisional configured term; record fallback | Financial Engine |
+| `term_years` | Mortgage term | Both | Client / adviser | Integer or None | Years, > 0 | No | Yes | Yes | Use versioned `term_years_reference` from `financial_defaults.yaml`; record `TERM_REFERENCE` assumption | Financial Engine |
 | `purchase_cost_rate` | Estimated purchase costs as a proportion of property price | Both | Configuration / territory-property rules | Decimal | Decimal ratio, >= 0 | No | Yes | Yes | Use explicit configured assumption; record fallback and configuration version | Financial Engine |
 | `appraisal_value` | Property appraisal value when available | Pro primarily | Client / adviser / appraisal source | Decimal or None | EUR, > 0 | No | No | No | If absent, calculate `ltv_provisional` using `property_price`; no appraisal value is substituted | Financial Engine |
 | `num_borrowers` | Number of borrowers in the scenario | Both | Client / adviser | Integer | >= 1 | No | No | Yes | Default scenario representation may use 1 if not otherwise specified | Simulation / metadata |
@@ -275,7 +275,7 @@ The following points require cross-checking against the reconciled Financial Eng
 2. CLOSED — `cash_gap` remains floored at zero. No separate signed cash-balance variable is introduced in v1 because `residual_savings` and `desired_cash_buffer` already preserve the information required to evaluate remaining liquidity.
 3. CLOSED — `planned_down_payment` must satisfy `0 <= planned_down_payment <= property_price`. Values above `property_price` are invalid and must not be silently capped or corrected.
 4. CLOSED — Missing `desired_cash_buffer` uses versioned `desired_cash_buffer_reference` from `financial_defaults.yaml`; the fallback is recorded as `DESIRED_CASH_BUFFER_REFERENCE` and must not be hardcoded in engine logic.
-5. Confirm exact provisional fallback for `term_years`.
+5. CLOSED — Missing `term_years` uses versioned `term_years_reference` from `financial_defaults.yaml`; the fallback is recorded as `TERM_REFERENCE` and must not be hardcoded in engine logic.
 6. Confirm purchase-cost configuration hierarchy by territory/property type.
 7. Confirm whether `num_borrowers` belongs in Financial Engine v1 scenario metadata or only in the Simulation/Rules layers.
 8. Confirm technical confidence scale and controlled values.
