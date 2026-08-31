@@ -33,7 +33,7 @@ def test_financial_engine_against_golden_cases():
     with GOLDEN.open(encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
-    assert len(rows) == 17
+    assert len(rows) == 18
 
     defaults = load_financial_defaults()
 
@@ -127,3 +127,27 @@ def test_financial_engine_against_golden_cases():
         assert assumptions == row["expected_assumptions"]
         assert modes == row["expected_calculation_modes"]
         assert errors == row["expected_invalid_inputs"]
+
+        # Internal financial invariant:
+        # cash_gap = max(0, desired_cash_buffer - residual_savings)
+        if (
+            result.cash_gap is not None
+            and result.residual_savings is not None
+        ):
+            resolved_buffer = (
+                scenario.desired_cash_buffer
+                if scenario.desired_cash_buffer is not None
+                else defaults.desired_cash_buffer_reference
+            )
+
+            expected_cash_gap_from_invariant = max(
+                Decimal("0"),
+                resolved_buffer - result.residual_savings,
+            )
+
+            assert result.cash_gap == expected_cash_gap_from_invariant, (
+                f"{row['case_id']} cash-gap invariant failed: "
+                f"cash_gap={result.cash_gap}, "
+                f"buffer={resolved_buffer}, "
+                f"residual_savings={result.residual_savings}"
+            )

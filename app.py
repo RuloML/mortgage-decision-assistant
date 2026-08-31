@@ -35,16 +35,27 @@ def D(value):
     return Decimal(str(value))
 
 
+def format_number_es(value, decimals=0):
+    """Format number using Spanish thousands/decimal separators."""
+    formatted = f"{float(value):,.{decimals}f}"
+    return (
+        formatted
+        .replace(",", "TEMP")
+        .replace(".", ",")
+        .replace("TEMP", ".")
+    )
+
+
 def money(value):
     if value is None:
         return "—"
-    return f"{float(value):,.0f} €"
+    return f"{format_number_es(value, 0)} €"
 
 
 def pct(value):
     if value is None:
         return "—"
-    return f"{float(value) * 100:.1f}%"
+    return f"{format_number_es(float(value) * 100, 1)}%"
 
 
 st.subheader("Scenario inputs")
