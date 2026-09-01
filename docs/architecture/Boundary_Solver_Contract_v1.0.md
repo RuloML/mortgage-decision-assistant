@@ -142,12 +142,27 @@ violate another configured constraint.
 Therefore v1 uses a feasible presentation boundary:
 
 1. preserve the exact technical boundary,
-2. project candidate values onto the configured presentation grid,
-3. evaluate the variables jointly,
-4. recalculate every candidate through the Financial Engine,
-5. verify all configured constraints,
-6. select the highest-ranked feasible presentation pair according to the
+2. project the primary optimization variable onto the configured presentation
+   grid in the conservative direction,
+3. for that projected value, derive the feasible interval of the second
+   adjustable variable from all applicable constraints,
+4. select within that interval the grid-aligned value closest to the technical
+   boundary value,
+5. recalculate the complete candidate through the Financial Engine,
+6. verify every configured constraint,
+7. if no feasible pair exists at that grid point, continue conservatively to
+   the next grid value,
+8. select the first/highest-ranked feasible presentation pair according to the
    declared optimization objective.
+
+Adjustable variables must never be rounded independently.
+
+The displayed secondary variable is therefore not merely a rounded copy of its
+technical value. It is a jointly feasible grid-aligned value conditional on the
+displayed primary variable.
+
+Any change to this presentation algorithm must preserve mandatory Financial
+Engine re-verification.
 
 Default presentation grid step v1:
 - 1000 EUR
