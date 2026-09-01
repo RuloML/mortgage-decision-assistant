@@ -10,10 +10,19 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from mortgage_decision_assistant.alternatives_engine import (
+    AlternativeType,
+    generate_alternatives,
+)
+from mortgage_decision_assistant.boundary_solver import (
+    BoundaryTargets,
+    SimulationPolicy,
+    SimulationVariablePolicy,
+)
 from mortgage_decision_assistant.config import load_financial_defaults
 from mortgage_decision_assistant.domain import FinancialScenario
-from mortgage_decision_assistant.financial_engine import (
-    calculate_financial_scenario,
+from mortgage_decision_assistant.recommendation_engine import (
+    RecommendationStatus,
 )
 
 
@@ -24,8 +33,9 @@ st.set_page_config(
 
 st.title("Mortgage Decision Assistant")
 st.caption(
-    "Financial structuring prototype — deterministic calculation only. "
-    "No bank approval prediction."
+    "Asistente de estructuración hipotecaria. "
+    "Analiza la operación, identifica puntos de ajuste "
+    "y propone alternativas verificadas por el motor financiero."
 )
 
 defaults = load_financial_defaults()
@@ -36,7 +46,6 @@ def D(value):
 
 
 def format_number_es(value, decimals=0):
-    """Format number using Spanish thousands/decimal separators."""
     formatted = f"{float(value):,.{decimals}f}"
     return (
         formatted
@@ -52,33 +61,70 @@ def money(value):
     return f"{format_number_es(value, 0)} €"
 
 
+def signed_money(value):
+    if value is None:
+        return "—"
+
+    prefix = "+" if value > 0 else ""
+
+    return f"{prefix}{format_number_es(value, 0)} €"
+
+
 def pct(value):
     if value is None:
         return "—"
+
     return f"{format_number_es(float(value) * 100, 1)}%"
 
 
-st.subheader("Scenario inputs")
+def ltv_value(result):
+    return (
+        result.ltv
+        if result.ltv is not None
+        else result.ltv_provisional
+    )
+
+
+ISSUE_TITLES = {
+    "LIQUIDITY": "Liquidez",
+    "LTV": "Nivel de financiación",
+    "DEBT_CAPACITY": "Capacidad mensual",
+    "FINANCING": "Financiación planteada",
+}
+
+ALTERNATIVE_TITLES = {
+    AlternativeType.PRICE_AND_DOWN_PAYMENT:
+        "Ajustar precio y entrada",
+    AlternativeType.TERM_EXTENSION:
+        "Ampliar plazo",
+}
+
+
+# ============================================================
+# INPUTS
+# ============================================================
+
+st.subheader("Datos de la operación")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     property_price = st.number_input(
-        "Property price (€)",
+        "Precio del inmueble (€)",
         min_value=1.0,
         value=300000.0,
         step=5000.0,
     )
 
     available_savings = st.number_input(
-        "Available savings (€)",
+        "Ahorro disponible (€)",
         min_value=0.0,
         value=100000.0,
         step=5000.0,
     )
 
     desired_cash_buffer = st.number_input(
-        "Desired cash buffer (€)",
+        "Colchón deseado tras la operación (€)",
         min_value=0.0,
         value=20000.0,
         step=1000.0,
@@ -86,21 +132,21 @@ with col1:
 
 with col2:
     planned_down_payment = st.number_input(
-        "Planned down payment (€)",
+        "Entrada prevista (€)",
         min_value=0.0,
         value=60000.0,
         step=5000.0,
     )
 
     monthly_net_income = st.number_input(
-        "Monthly net income (€)",
+        "Ingresos netos mensuales (€)",
         min_value=1.0,
         value=4000.0,
         step=100.0,
     )
 
     current_monthly_debt = st.number_input(
-        "Current monthly debt (€)",
+        "Deuda mensual actual (€)",
         min_value=0.0,
         value=300.0,
         step=50.0,
@@ -108,42 +154,47 @@ with col2:
 
 with col3:
     requested_loan_amount = st.number_input(
-        "Requested loan amount (€)",
+        "Hipoteca solicitada (€)",
         min_value=0.0,
         value=240000.0,
         step=5000.0,
     )
 
     interest_rate_pct = st.number_input(
-        "Annual interest rate (%)",
+        "Tipo de interés anual (%)",
         min_value=0.0,
         value=3.0,
         step=0.1,
     )
 
     term_years = st.number_input(
-        "Term (years)",
+        "Plazo (años)",
         min_value=1,
         value=30,
         step=1,
     )
 
-with st.expander("Optional / advanced inputs"):
+with st.expander("Datos avanzados"):
     appraisal_value = st.number_input(
-        "Appraisal value (€)",
+        "Tasación (€)",
         min_value=0.0,
         value=300000.0,
         step=5000.0,
     )
 
     purchase_cost_rate_pct = st.number_input(
-        "Purchase cost rate (%)",
+        "Gastos estimados de compra (%)",
         min_value=0.0,
         value=10.0,
         step=0.5,
     )
 
-if st.button("Calculate scenario", type="primary"):
+
+# ============================================================
+# ANALYSIS
+# ============================================================
+
+if st.button("Analizar operación", type="primary"):
 
     scenario = FinancialScenario(
         property_price=D(property_price),
@@ -163,76 +214,327 @@ if st.button("Calculate scenario", type="primary"):
         ),
     )
 
-    result = calculate_financial_scenario(
-        scenario,
-        defaults=defaults,
+    targets = BoundaryTargets(
+        target_profile="STANDARD",
+        ltv_target=D("0.80"),
+        dsti_target=D("0.40"),
     )
 
+    policy = SimulationPolicy(
+        property_price=SimulationVariablePolicy.ADJUSTABLE,
+        planned_down_payment=SimulationVariablePolicy.ADJUSTABLE,
+    )
+
+    alternatives_result = generate_alternatives(
+        base=scenario,
+        defaults=defaults,
+        targets=targets,
+        policy=policy,
+    )
+
+    recommendation = alternatives_result.recommendation
+    base_result = recommendation.base_financial_result
+
     st.divider()
-    st.subheader("Scenario results")
 
-    r1, r2, r3 = st.columns(3)
+    # ========================================================
+    # BASE SCENARIO
+    # ========================================================
 
-    with r1:
-        st.metric("Monthly payment", money(result.monthly_payment))
+    st.subheader("Situación actual")
+
+    m1, m2, m3, m4 = st.columns(4)
+
+    with m1:
+        st.metric(
+            "Cuota mensual",
+            money(base_result.monthly_payment),
+        )
+
+    with m2:
         st.metric(
             "LTV",
-            pct(
-                result.ltv
-                if result.ltv is not None
-                else result.ltv_provisional
-            ),
+            pct(ltv_value(base_result)),
         )
 
-    with r2:
-        st.metric("DSTI", pct(result.dsti))
-        st.metric("Cash gap", money(result.cash_gap))
-
-    with r3:
-        st.metric("Residual savings", money(result.residual_savings))
-        st.metric("Monthly margin", money(result.monthly_margin))
-
-    st.subheader("Calculation quality")
-
-    q1, q2 = st.columns(2)
-
-    with q1:
-        st.write(
-            "**Completeness:**",
-            result.metadata.calculation_completeness.value,
+    with m3:
+        st.metric(
+            "DSTI",
+            pct(base_result.dsti),
         )
 
-    with q2:
-        st.write(
-            "**Technical confidence:**",
-            result.metadata.technical_confidence.value,
+    with m4:
+        st.metric(
+            "Déficit de liquidez",
+            money(base_result.cash_gap),
         )
 
-    if result.metadata.assumptions:
+    # ========================================================
+    # DIAGNOSIS
+    # ========================================================
+
+    st.subheader("Diagnóstico")
+
+    if recommendation.status == RecommendationStatus.WITHIN_TARGETS:
+
+        st.success(
+            "La estructura actual cumple los objetivos "
+            "configurados analizados."
+        )
+
+    elif recommendation.status == RecommendationStatus.INCOMPLETE:
+
+        st.warning(recommendation.summary)
+
+    elif (
+        recommendation.status
+        == RecommendationStatus.NO_FEASIBLE_STRUCTURE_FOUND
+    ):
+
+        st.warning(recommendation.summary)
+
+    else:
+
+        for issue in recommendation.base_issues:
+
+            title = ISSUE_TITLES.get(
+                issue.type,
+                issue.type,
+            )
+
+            st.warning(
+                f"**{title}:** {issue.explanation}"
+            )
+
+        # ====================================================
+        # MAIN RECOMMENDATION
+        # ====================================================
+
+        st.subheader("Recomendación principal")
+
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.metric(
+                "Precio orientativo",
+                money(
+                    recommendation.presented_property_price
+                ),
+                delta=signed_money(
+                    recommendation.property_price_change
+                ),
+            )
+
+        with c2:
+            st.metric(
+                "Entrada orientativa",
+                money(
+                    recommendation.presented_down_payment
+                ),
+                delta=signed_money(
+                    recommendation.down_payment_change
+                ),
+            )
+
+        with c3:
+            boundary_result = recommendation.boundary.financial_result
+
+            st.metric(
+                "DSTI resultante",
+                pct(boundary_result.dsti),
+            )
+
         st.info(
-            "Fallbacks used: "
-            + ", ".join(x.value for x in result.metadata.assumptions)
+            "La recomendación mostrada corresponde a una "
+            "estructura factible verificada por el motor financiero."
         )
 
-    if result.metadata.calculation_modes:
-        st.info(
-            "Calculation modes: "
-            + ", ".join(x.value for x in result.metadata.calculation_modes)
+        # ====================================================
+        # ALTERNATIVES
+        # ====================================================
+
+        st.subheader("Alternativas viables")
+
+        if not alternatives_result.alternatives:
+
+            st.write(
+                "No se han encontrado alternativas adicionales "
+                "dentro de las palancas analizadas."
+            )
+
+        for index, alternative in enumerate(
+            alternatives_result.alternatives,
+            start=1,
+        ):
+
+            title = ALTERNATIVE_TITLES[
+                alternative.alternative_type
+            ]
+
+            with st.container(border=True):
+
+                st.markdown(
+                    f"### Opción {index} · {title}"
+                )
+
+                st.write(alternative.explanation)
+
+                a1, a2, a3, a4 = st.columns(4)
+
+                with a1:
+                    st.metric(
+                        "Precio",
+                        money(alternative.property_price),
+                    )
+
+                with a2:
+                    st.metric(
+                        "Entrada",
+                        money(
+                            alternative.planned_down_payment
+                        ),
+                    )
+
+                with a3:
+                    st.metric(
+                        "Plazo",
+                        (
+                            f"{alternative.term_years} años"
+                            if alternative.term_years
+                            is not None
+                            else "—"
+                        ),
+                    )
+
+                with a4:
+                    st.metric(
+                        "Cuota",
+                        money(
+                            alternative
+                            .financial_result
+                            .monthly_payment
+                        ),
+                    )
+
+                r1, r2, r3 = st.columns(3)
+
+                with r1:
+                    st.write(
+                        "**Liquidez:**",
+                        money(
+                            alternative
+                            .financial_result
+                            .cash_gap
+                        ),
+                    )
+
+                with r2:
+                    st.write(
+                        "**LTV:**",
+                        pct(
+                            ltv_value(
+                                alternative.financial_result
+                            )
+                        ),
+                    )
+
+                with r3:
+                    st.write(
+                        "**DSTI:**",
+                        pct(
+                            alternative
+                            .financial_result
+                            .dsti
+                        ),
+                    )
+
+    # ========================================================
+    # TRACEABILITY
+    # ========================================================
+
+    with st.expander("Detalle técnico y trazabilidad"):
+
+        st.write(
+            "**Perfil objetivo:** STANDARD"
         )
 
-    if result.metadata.validation_errors:
-        st.error(
-            "Validation issues: "
-            + ", ".join(result.metadata.validation_errors)
+        st.write(
+            "**LTV objetivo:** 80%"
         )
 
-    if result.metadata.calculation_completeness.value == "PARTIAL":
-        st.warning(
-            "Some outputs could not be calculated because "
-            "required information is missing or invalid."
+        st.write(
+            "**DSTI objetivo:** 40%"
         )
+
+        st.write(
+            "**Completitud del cálculo:**",
+            base_result
+            .metadata
+            .calculation_completeness
+            .value,
+        )
+
+        st.write(
+            "**Confianza técnica:**",
+            base_result
+            .metadata
+            .technical_confidence
+            .value,
+        )
+
+        if recommendation.boundary is not None:
+
+            st.write(
+                "**Frontera técnica de precio:**",
+                money(
+                    recommendation
+                    .technical_property_price
+                ),
+            )
+
+            st.write(
+                "**Entrada técnica:**",
+                money(
+                    recommendation
+                    .technical_down_payment
+                ),
+            )
+
+            st.write(
+                "**Restricciones dominantes:**",
+                ", ".join(
+                    constraint.value
+                    for constraint
+                    in recommendation
+                    .boundary
+                    .dominant_constraints
+                ),
+            )
+
+        if base_result.metadata.assumptions:
+
+            st.write(
+                "**Supuestos / fallbacks:**",
+                ", ".join(
+                    item.value
+                    for item
+                    in base_result.metadata.assumptions
+                ),
+            )
+
+        if base_result.metadata.calculation_modes:
+
+            st.write(
+                "**Modos de cálculo:**",
+                ", ".join(
+                    item.value
+                    for item
+                    in base_result.metadata.calculation_modes
+                ),
+            )
 
     st.caption(
-        "Development prototype. Financial calculations are deterministic "
-        "and separate from future Rules, Simulation and ML layers."
+        "Herramienta de apoyo a la estructuración. "
+        "No predice aprobación bancaria ni sustituye "
+        "el análisis profesional."
     )
