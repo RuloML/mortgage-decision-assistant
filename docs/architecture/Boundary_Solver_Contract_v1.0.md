@@ -125,25 +125,51 @@ dominant_constraint:
 
 They must not be conflated.
 
-## 11. Conservative rounding
+## 11. Conservative presentation boundary
 
-Internal boundaries retain full Decimal precision.
+Internal technical boundaries retain full Decimal precision.
 
-Function contract:
+For 1D boundaries, directional conservative rounding may be applied directly:
 
-round_conservatively(value, step, direction)
+- maximum allowed values -> round DOWN
+- minimum required values -> round UP
 
-For maximum allowed values:
-- round DOWN
+For 2D boundaries, adjustable variables must NOT be rounded independently.
 
-For minimum required values:
-- round UP
+A pair that is individually rounded in the conservative direction can still
+violate another configured constraint.
 
-Default technical display step v1:
+Therefore v1 uses a feasible presentation boundary:
+
+1. preserve the exact technical boundary,
+2. project candidate values onto the configured presentation grid,
+3. evaluate the variables jointly,
+4. recalculate every candidate through the Financial Engine,
+5. verify all configured constraints,
+6. select the highest-ranked feasible presentation pair according to the
+   declared optimization objective.
+
+Default presentation grid step v1:
 - 1000 EUR
 
-Example:
-266666.67 -> 266000 for a maximum price boundary.
+Example B01:
+
+Technical boundary:
+- property_price = 266666.67 EUR
+- planned_down_payment = 53333.33 EUR
+
+Independent rounding to:
+- property_price = 266000 EUR
+- planned_down_payment = 54000 EUR
+
+is NOT feasible because it exceeds available operation cash.
+
+The feasible presentation boundary is:
+- property_price = 265000 EUR
+- planned_down_payment = 53000 EUR
+
+The technical boundary and the feasible presentation boundary must both remain
+available in traceability.
 
 ## 12. Target profiles
 

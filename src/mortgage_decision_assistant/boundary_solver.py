@@ -78,6 +78,7 @@ class BoundaryResult:
     financed_amount: Decimal
 
     rounded_property_price: Decimal
+    rounded_down_payment: Decimal
 
     dominant_constraints: tuple[BoundaryConstraint, ...]
     candidates: tuple[CandidateEvaluation, ...]
@@ -455,6 +456,7 @@ def _solve_1d_price(
             Decimal("1000"),
             "DOWN",
         ),
+        rounded_down_payment=down_payment,
 
         dominant_constraints=(dominant_constraint,),
         candidates=(candidate,),
@@ -502,6 +504,18 @@ def _solve_pair_intersection(
             BoundaryConstraint.LIQUIDITY,
         )
     ):
+        # Financial Engine defines LTV as:
+        #
+        # financed / min(property_price, appraisal_value)
+        #
+        # Therefore the analytical solution is piecewise when
+        # an appraisal value exists.
+
+        # Branch 1:
+        # property_price <= appraisal_value
+        #
+        # down = (1 - LTV target) * price
+        # down + cost_rate * price = available_cash
         denominator = (
             ONE
             - targets.ltv_target
@@ -511,16 +525,60 @@ def _solve_pair_intersection(
         if denominator <= ZERO:
             return None
 
-        price = (
+        price_price_based = (
             available_cash / denominator
         )
 
-        down_payment = (
-            (ONE - targets.ltv_target)
-            * price
+        if (
+            base.appraisal_value is None
+            or price_price_based <= base.appraisal_value
+        ):
+            down_payment = (
+                (ONE - targets.ltv_target)
+                * price_price_based
+            )
+
+            return (
+                price_price_based,
+                down_payment,
+            )
+
+        # Branch 2:
+        # property_price > appraisal_value
+        #
+        # financed = LTV target * appraisal_value
+        # down = price - financed
+        #
+        # liquidity:
+        # price - financed + cost_rate * price
+        # = available_cash
+        appraisal_financing_limit = (
+            targets.ltv_target
+            * base.appraisal_value
         )
 
-        return price, down_payment
+        denominator = ONE + cost_rate
+
+        if denominator <= ZERO:
+            return None
+
+        price_appraisal_based = (
+            available_cash
+            + appraisal_financing_limit
+        ) / denominator
+
+        if price_appraisal_based <= base.appraisal_value:
+            return None
+
+        down_payment = (
+            price_appraisal_based
+            - appraisal_financing_limit
+        )
+
+        return (
+            price_appraisal_based,
+            down_payment,
+        )
 
     # LTV + DSTI
     if pair == frozenset(
@@ -575,6 +633,162 @@ def _solve_pair_intersection(
         return price, down_payment
 
     return None
+
+
+
+def _find_feasible_presentation_pair(
+    base: FinancialScenario,
+    technical_price: Decimal,
+    technical_down_payment: Decimal,
+    defaults: FinancialDefaults,
+    targets: BoundaryTargets,
+    step: Decimal = Decimal("1000"),
+) -> tuple[Decimal, Decimal]:
+
+    """
+    Find a grid-aligned presentation pair that remains financially feasible.
+
+    Price is treated as a maximum boundary, so search starts downward.
+
+    Down payment is not rounded independently. For each candidate price,
+    the function derives the feasible down-payment interval implied by
+    liquidity, LTV and DSTI, then selects the grid value closest to the
+    technical down payment.
+
+    Every selected pair is verified again through the Financial Engine.
+    """
+
+    if step <= ZERO:
+        raise ValueError("step must be positive")
+
+    cost_rate = _resolved_purchase_cost_rate(
+        base,
+        defaults,
+    )
+
+    buffer = _resolved_buffer(
+        base,
+        defaults,
+    )
+
+    available_cash = (
+        base.available_savings
+        - buffer
+    )
+
+    max_financed = _max_financed_amount_from_dsti(
+        base,
+        defaults,
+        targets,
+    )
+
+    candidate_price = round_conservatively(
+        technical_price,
+        step,
+        "DOWN",
+    )
+
+    while candidate_price > ZERO:
+
+        # Minimum down payment required by constraints.
+        minimum_down = ZERO
+
+        # LTV:
+        # Financial Engine uses:
+        # financed / min(property_price, appraisal_value)
+        #
+        # financed = property_price - down_payment
+        #
+        # Therefore:
+        # down_payment >= property_price
+        #                 - target * LTV denominator
+        ltv_denominator = candidate_price
+
+        if base.appraisal_value is not None:
+            ltv_denominator = min(
+                candidate_price,
+                base.appraisal_value,
+            )
+
+        minimum_down = max(
+            minimum_down,
+            candidate_price
+            - targets.ltv_target * ltv_denominator,
+        )
+
+        # DSTI:
+        # financed <= maximum financed amount
+        # down >= price - max_financed
+        if max_financed is not None:
+            minimum_down = max(
+                minimum_down,
+                candidate_price - max_financed,
+            )
+
+        # Maximum down payment allowed by liquidity:
+        # down + purchase_costs <= available_cash
+        maximum_down = (
+            available_cash
+            - cost_rate * candidate_price
+        )
+
+        maximum_down = min(
+            maximum_down,
+            candidate_price,
+        )
+
+        if maximum_down >= minimum_down:
+
+            grid_min = round_conservatively(
+                minimum_down,
+                step,
+                "UP",
+            )
+
+            grid_max = round_conservatively(
+                maximum_down,
+                step,
+                "DOWN",
+            )
+
+            if grid_min <= grid_max:
+
+                # Choose the feasible grid value closest to the
+                # technical boundary down payment.
+                technical_grid = round_conservatively(
+                    technical_down_payment,
+                    step,
+                    "UP",
+                )
+
+                candidate_down = min(
+                    max(
+                        technical_grid,
+                        grid_min,
+                    ),
+                    grid_max,
+                )
+
+                candidate = _evaluate_candidate(
+                    base,
+                    candidate_price,
+                    candidate_down,
+                    (),
+                    defaults,
+                    targets,
+                )
+
+                if candidate.status == CandidateStatus.FEASIBLE:
+                    return (
+                        candidate_price,
+                        candidate_down,
+                    )
+
+        candidate_price -= step
+
+    raise ValueError(
+        "No feasible presentation pair found"
+    )
 
 
 def _solve_2d_price_down_payment(
@@ -640,6 +854,18 @@ def _solve_2d_price_down_payment(
     assert result is not None
     assert result.financed_amount is not None
 
+    (
+        presentation_price,
+        presentation_down_payment,
+    ) = _find_feasible_presentation_pair(
+        base=base,
+        technical_price=selected.property_price,
+        technical_down_payment=selected.planned_down_payment,
+        defaults=defaults,
+        targets=targets,
+        step=Decimal("1000"),
+    )
+
     return BoundaryResult(
         base_scenario_id=base.scenario_id,
         optimization_objective=(
@@ -651,11 +877,8 @@ def _solve_2d_price_down_payment(
         planned_down_payment=selected.planned_down_payment,
         financed_amount=result.financed_amount,
 
-        rounded_property_price=round_conservatively(
-            selected.property_price,
-            Decimal("1000"),
-            "DOWN",
-        ),
+        rounded_property_price=presentation_price,
+        rounded_down_payment=presentation_down_payment,
 
         dominant_constraints=selected.constraints,
         candidates=tuple(evaluations),
