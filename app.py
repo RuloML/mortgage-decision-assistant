@@ -13,6 +13,7 @@ if str(SRC) not in sys.path:
 
 from mortgage_decision_assistant.alternatives_engine import (
     AlternativeType,
+    StrategyStatus,
     generate_alternatives,
 )
 from mortgage_decision_assistant.boundary_solver import (
@@ -99,6 +100,8 @@ ISSUE_TITLES = {
 ALTERNATIVE_TITLES = {
     AlternativeType.KEEP_DOWN_PAYMENT:
         "Mantener entrada",
+    AlternativeType.KEEP_PROPERTY_PRICE:
+        "Mantener precio",
     AlternativeType.TERM_EXTENSION:
         "Ampliar plazo",
 }
@@ -902,7 +905,7 @@ if st.session_state.get("analysis_ready", False):
         # ALTERNATIVES
         # ====================================================
 
-        st.subheader("Alternativas viables")
+        st.subheader("Otras estrategias posibles")
 
         if not alternatives_result.alternatives:
 
@@ -996,6 +999,80 @@ if st.session_state.get("analysis_ready", False):
                             .dsti
                         ),
                     )
+
+        # ====================================================
+        # DECISION MAP
+        # ====================================================
+
+        st.subheader("Mapa de estrategias evaluadas")
+
+        st.caption(
+            "El sistema explora distintas formas de estructurar "
+            "la operación y explica cuáles son viables."
+        )
+
+        status_icons = {
+            StrategyStatus.VIABLE: "✅",
+            StrategyStatus.NOT_VIABLE: "❌",
+            StrategyStatus.NOT_RELEVANT: "◯",
+            StrategyStatus.DUPLICATE_MAIN: "=",
+        }
+
+        status_labels = {
+            StrategyStatus.VIABLE: "Viable",
+            StrategyStatus.NOT_VIABLE: "No viable",
+            StrategyStatus.NOT_RELEVANT: "No relevante",
+            StrategyStatus.DUPLICATE_MAIN:
+                "Coincide con la recomendación principal",
+        }
+
+        for evaluation in alternatives_result.strategy_evaluations:
+
+            strategy_name = ALTERNATIVE_TITLES[
+                evaluation.alternative_type
+            ]
+
+            icon = status_icons[evaluation.status]
+            status_label = status_labels[evaluation.status]
+
+            with st.container(border=True):
+
+                st.markdown(
+                    f"**{icon} {strategy_name} · {status_label}**"
+                )
+
+                st.write(evaluation.explanation)
+
+                if (
+                    evaluation.status == StrategyStatus.VIABLE
+                    and evaluation.alternative is not None
+                ):
+
+                    alt = evaluation.alternative
+
+                    d1, d2, d3 = st.columns(3)
+
+                    with d1:
+                        st.write(
+                            "**Precio:**",
+                            money(alt.property_price),
+                        )
+
+                    with d2:
+                        st.write(
+                            "**Entrada:**",
+                            money(alt.planned_down_payment),
+                        )
+
+                    with d3:
+                        st.write(
+                            "**Plazo:**",
+                            (
+                                f"{alt.term_years} años"
+                                if alt.term_years is not None
+                                else "—"
+                            ),
+                        )
 
     # ========================================================
     # TRACEABILITY
