@@ -105,7 +105,249 @@ ALTERNATIVE_TITLES = {
 
 
 # ============================================================
-# INPUTS
+# EXPERIENCE MODE
+# ============================================================
+
+st.sidebar.title("Modo de trabajo")
+
+experience_mode = st.sidebar.radio(
+    "Selecciona tu perfil",
+    [
+        "Lite · Asesor inmobiliario",
+        "Pro · Asesor financiero",
+    ],
+    index=1,
+)
+
+# ============================================================
+# LITE · REAL ESTATE ADVISER
+# ============================================================
+
+if experience_mode == "Lite · Asesor inmobiliario":
+
+    st.subheader("Preanálisis rápido")
+
+    st.caption(
+        "Primer filtro de la operación antes de derivarla "
+        "a un análisis financiero completo."
+    )
+
+    lite_col1, lite_col2 = st.columns(2)
+
+    with lite_col1:
+
+        lite_price = st.number_input(
+            "Precio del inmueble (€)",
+            min_value=1.0,
+            value=300000.0,
+            step=5000.0,
+            key="lite_price",
+        )
+
+        lite_savings = st.number_input(
+            "Ahorro disponible (€)",
+            min_value=0.0,
+            value=100000.0,
+            step=5000.0,
+            key="lite_savings",
+        )
+
+        lite_down = st.number_input(
+            "Entrada prevista (€)",
+            min_value=0.0,
+            value=60000.0,
+            step=5000.0,
+            key="lite_down",
+        )
+
+    with lite_col2:
+
+        lite_income = st.number_input(
+            "Ingresos netos mensuales (€)",
+            min_value=1.0,
+            value=4000.0,
+            step=100.0,
+            key="lite_income",
+        )
+
+        lite_debt = st.number_input(
+            "Deuda mensual actual (€)",
+            min_value=0.0,
+            value=300.0,
+            step=50.0,
+            key="lite_debt",
+        )
+
+        lite_term = st.number_input(
+            "Plazo orientativo (años)",
+            min_value=1,
+            max_value=40,
+            value=30,
+            step=1,
+            key="lite_term",
+        )
+
+    if st.button(
+        "Evaluar operación",
+        type="primary",
+        key="lite_analyse",
+    ):
+
+        lite_scenario = FinancialScenario(
+            property_price=D(lite_price),
+            available_savings=D(lite_savings),
+
+            # Lite keeps the product assumptions simple.
+            desired_cash_buffer=(
+                defaults.desired_cash_buffer_reference
+            ),
+
+            planned_down_payment=D(lite_down),
+
+            monthly_net_income=D(lite_income),
+            current_monthly_debt=D(lite_debt),
+
+            # Financing is derived from price and planned down payment.
+            requested_loan_amount=None,
+
+            interest_rate_annual=(
+                defaults.interest_rate_reference
+            ),
+
+            term_years=int(lite_term),
+
+            purchase_cost_rate=(
+                defaults.purchase_cost_rate_global_default
+            ),
+
+            appraisal_value=None,
+        )
+
+        lite_targets = BoundaryTargets(
+            target_profile="STANDARD",
+            ltv_target=D("0.80"),
+            dsti_target=D("0.40"),
+        )
+
+        lite_policy = SimulationPolicy(
+            property_price=(
+                SimulationVariablePolicy.ADJUSTABLE
+            ),
+            planned_down_payment=(
+                SimulationVariablePolicy.ADJUSTABLE
+            ),
+        )
+
+        lite_result = generate_alternatives(
+            base=lite_scenario,
+            defaults=defaults,
+            targets=lite_targets,
+            policy=lite_policy,
+        )
+
+        lite_rec = lite_result.recommendation
+        lite_financial = lite_rec.base_financial_result
+
+        st.divider()
+
+        if (
+            lite_rec.status
+            == RecommendationStatus.WITHIN_TARGETS
+        ):
+
+            st.success("ENCaja dentro de los objetivos analizados")
+
+            st.write(
+                "La estructura inicial no presenta un punto "
+                "de ajuste relevante dentro de los criterios "
+                "analizados."
+            )
+
+        elif (
+            lite_rec.status
+            == RecommendationStatus.RESTRUCTURING_AVAILABLE
+        ):
+
+            st.warning("REQUIERE AJUSTE")
+
+            issue_names = [
+                ISSUE_TITLES.get(issue.type, issue.type)
+                for issue in lite_rec.base_issues
+            ]
+
+            st.write(
+                "**Principal punto a revisar:** "
+                + ", ".join(issue_names)
+            )
+
+            if (
+                lite_rec.presented_property_price is not None
+            ):
+
+                r1, r2 = st.columns(2)
+
+                with r1:
+                    st.metric(
+                        "Precio analizado",
+                        money(lite_scenario.property_price),
+                    )
+
+                with r2:
+                    st.metric(
+                        "Precio orientativo estructurable",
+                        money(
+                            lite_rec.presented_property_price
+                        ),
+                    )
+
+            st.info(
+                "Recomendación: derivar la operación al "
+                "asesor financiero para revisar la estructura "
+                "y las alternativas disponibles."
+            )
+
+        else:
+
+            st.warning("REVISAR CON ASESOR FINANCIERO")
+
+            st.write(
+                "El preanálisis no permite cerrar una estructura "
+                "dentro de los parámetros analizados."
+            )
+
+        st.subheader("Indicadores rápidos")
+
+        q1, q2, q3 = st.columns(3)
+
+        with q1:
+            st.metric(
+                "LTV",
+                pct(ltv_value(lite_financial)),
+            )
+
+        with q2:
+            st.metric(
+                "DSTI",
+                pct(lite_financial.dsti),
+            )
+
+        with q3:
+            st.metric(
+                "Déficit de liquidez",
+                money(lite_financial.cash_gap),
+            )
+
+        st.caption(
+            "Preanálisis orientativo. No constituye una "
+            "decisión bancaria ni sustituye el análisis financiero."
+        )
+
+    # Stop here so the Pro interface is not rendered in Lite mode.
+    st.stop()
+
+
+# ============================================================
+# INPUTS · PRO
 # ============================================================
 
 st.subheader("Datos de la operación")
