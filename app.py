@@ -1,4 +1,5 @@
 import sys
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -337,17 +338,302 @@ if st.button("Analizar operación", type="primary"):
             )
 
         with c3:
-            boundary_result = recommendation.boundary.financial_result
+            # Use the verified adviser-facing scenario, not the
+            # unrounded technical boundary, for displayed metrics.
+            presented_alternative = next(
+                (
+                    alternative
+                    for alternative in alternatives_result.alternatives
+                    if alternative.alternative_type
+                    == AlternativeType.PRICE_AND_DOWN_PAYMENT
+                ),
+                None,
+            )
 
             st.metric(
                 "DSTI resultante",
-                pct(boundary_result.dsti),
+                pct(
+                    presented_alternative.financial_result.dsti
+                    if presented_alternative is not None
+                    else None
+                ),
             )
 
         st.info(
             "La recomendación mostrada corresponde a una "
             "estructura factible verificada por el motor financiero."
         )
+
+        # ====================================================
+        # BEFORE / AFTER COMPARISON
+        # ====================================================
+
+        if presented_alternative is not None:
+
+            st.subheader("Actual vs recomendación")
+
+            recommended_result = (
+                presented_alternative.financial_result
+            )
+
+            comparison_rows = [
+                {
+                    "Métrica": "Precio",
+                    "Actual": money(scenario.property_price),
+                    "Recomendación": money(
+                        presented_alternative.property_price
+                    ),
+                    "Variación": signed_money(
+                        presented_alternative.property_price
+                        - scenario.property_price
+                    ),
+                },
+                {
+                    "Métrica": "Entrada",
+                    "Actual": money(
+                        scenario.planned_down_payment
+                    ),
+                    "Recomendación": money(
+                        presented_alternative.planned_down_payment
+                    ),
+                    "Variación": signed_money(
+                        presented_alternative.planned_down_payment
+                        - scenario.planned_down_payment
+                    ),
+                },
+                {
+                    "Métrica": "Cuota mensual",
+                    "Actual": money(
+                        base_result.monthly_payment
+                    ),
+                    "Recomendación": money(
+                        recommended_result.monthly_payment
+                    ),
+                    "Variación": signed_money(
+                        recommended_result.monthly_payment
+                        - base_result.monthly_payment
+                    ),
+                },
+                {
+                    "Métrica": "LTV",
+                    "Actual": pct(
+                        ltv_value(base_result)
+                    ),
+                    "Recomendación": pct(
+                        ltv_value(recommended_result)
+                    ),
+                    "Variación": (
+                        f"{format_number_es(
+                            float(
+                                ltv_value(recommended_result)
+                                - ltv_value(base_result)
+                            ) * 100,
+                            1,
+                        )} pp"
+                    ),
+                },
+                {
+                    "Métrica": "DSTI",
+                    "Actual": pct(base_result.dsti),
+                    "Recomendación": pct(
+                        recommended_result.dsti
+                    ),
+                    "Variación": (
+                        f"{format_number_es(
+                            float(
+                                recommended_result.dsti
+                                - base_result.dsti
+                            ) * 100,
+                            1,
+                        )} pp"
+                    ),
+                },
+                {
+                    "Métrica": "Déficit de liquidez",
+                    "Actual": money(base_result.cash_gap),
+                    "Recomendación": money(
+                        recommended_result.cash_gap
+                    ),
+                    "Variación": signed_money(
+                        recommended_result.cash_gap
+                        - base_result.cash_gap
+                    ),
+                },
+                {
+                    "Métrica": "Ahorro residual",
+                    "Actual": money(
+                        base_result.residual_savings
+                    ),
+                    "Recomendación": money(
+                        recommended_result.residual_savings
+                    ),
+                    "Variación": signed_money(
+                        recommended_result.residual_savings
+                        - base_result.residual_savings
+                    ),
+                },
+                {
+                    "Métrica": "Plazo",
+                    "Actual": f"{scenario.term_years} años",
+                    "Recomendación": (
+                        f"{presented_alternative.term_years} años"
+                    ),
+                    "Variación": (
+                        f"{presented_alternative.term_years - scenario.term_years:+d} años"
+                    ),
+                },
+            ]
+
+            st.dataframe(
+                comparison_rows,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            # ====================================================
+            # SENSITIVITY
+            # ====================================================
+
+            st.subheader("Explorar escenarios")
+
+            st.caption(
+                "Modifica una variable y observa cómo cambia "
+                "la estructura financiera."
+            )
+
+            sensitivity_variable = st.selectbox(
+                "Variable a modificar",
+                [
+                    "Tipo de interés",
+                    "Ingresos mensuales",
+                    "Entrada",
+                    "Precio",
+                    "Plazo",
+                ],
+            )
+
+            sensitivity_scenario = scenario
+
+            if sensitivity_variable == "Tipo de interés":
+
+                new_rate = st.number_input(
+                    "Nuevo tipo de interés (%)",
+                    min_value=0.0,
+                    value=float(interest_rate_pct),
+                    step=0.1,
+                    key="sens_rate",
+                )
+
+                sensitivity_scenario = replace(
+                    scenario,
+                    interest_rate_annual=(
+                        D(new_rate) / D("100")
+                    ),
+                )
+
+            elif sensitivity_variable == "Ingresos mensuales":
+
+                new_income = st.number_input(
+                    "Nuevos ingresos netos mensuales (€)",
+                    min_value=1.0,
+                    value=float(monthly_net_income),
+                    step=100.0,
+                    key="sens_income",
+                )
+
+                sensitivity_scenario = replace(
+                    scenario,
+                    monthly_net_income=D(new_income),
+                )
+
+            elif sensitivity_variable == "Entrada":
+
+                new_down = st.number_input(
+                    "Nueva entrada (€)",
+                    min_value=0.0,
+                    value=float(planned_down_payment),
+                    step=1000.0,
+                    key="sens_down",
+                )
+
+                sensitivity_scenario = replace(
+                    scenario,
+                    planned_down_payment=D(new_down),
+                    requested_loan_amount=None,
+                )
+
+            elif sensitivity_variable == "Precio":
+
+                new_price = st.number_input(
+                    "Nuevo precio (€)",
+                    min_value=1.0,
+                    value=float(property_price),
+                    step=1000.0,
+                    key="sens_price",
+                )
+
+                sensitivity_scenario = replace(
+                    scenario,
+                    property_price=D(new_price),
+                    requested_loan_amount=None,
+                )
+
+            elif sensitivity_variable == "Plazo":
+
+                new_term = st.number_input(
+                    "Nuevo plazo (años)",
+                    min_value=1,
+                    max_value=40,
+                    value=int(term_years),
+                    step=1,
+                    key="sens_term",
+                )
+
+                sensitivity_scenario = replace(
+                    scenario,
+                    term_years=int(new_term),
+                )
+
+            sensitivity_result = calculate_financial_scenario(
+                sensitivity_scenario,
+                defaults=defaults,
+            )
+
+            s1, s2, s3, s4 = st.columns(4)
+
+            with s1:
+                st.metric(
+                    "Cuota",
+                    money(sensitivity_result.monthly_payment),
+                    delta=signed_money(
+                        sensitivity_result.monthly_payment
+                        - base_result.monthly_payment
+                    ),
+                )
+
+            with s2:
+                st.metric(
+                    "DSTI",
+                    pct(sensitivity_result.dsti),
+                )
+
+            with s3:
+                st.metric(
+                    "LTV",
+                    pct(
+                        ltv_value(sensitivity_result)
+                    ),
+                )
+
+            with s4:
+                st.metric(
+                    "Déficit de liquidez",
+                    money(sensitivity_result.cash_gap),
+                    delta=signed_money(
+                        sensitivity_result.cash_gap
+                        - base_result.cash_gap
+                    ),
+                )
 
         # ====================================================
         # ALTERNATIVES
