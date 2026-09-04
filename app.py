@@ -22,6 +22,9 @@ from mortgage_decision_assistant.boundary_solver import (
 )
 from mortgage_decision_assistant.config import load_financial_defaults
 from mortgage_decision_assistant.domain import FinancialScenario
+from mortgage_decision_assistant.financial_engine import (
+    calculate_financial_scenario,
+)
 from mortgage_decision_assistant.recommendation_engine import (
     RecommendationStatus,
 )
