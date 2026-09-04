@@ -43,7 +43,7 @@ def _ltv(result):
     )
 
 
-def test_liquidity_issue_does_not_offer_term_extension():
+def test_liquidity_issue_offers_keep_down_payment_strategy():
 
     scenario = FinancialScenario(
         property_price=D("300000"),
@@ -75,11 +75,16 @@ def test_liquidity_issue_does_not_offer_term_extension():
         alternative.alternative_type
         for alternative in result.alternatives
     ] == [
-        AlternativeType.PRICE_AND_DOWN_PAYMENT
+        AlternativeType.KEEP_DOWN_PAYMENT
     ]
 
+    alternative = result.alternatives[0]
 
-def test_dsti_issue_offers_price_and_term_alternatives():
+    assert alternative.planned_down_payment == D("60000")
+    assert alternative.property_price == D("200000")
+
+
+def test_dsti_issue_offers_distinct_strategies():
 
     scenario = FinancialScenario(
         property_price=D("300000"),
@@ -112,8 +117,44 @@ def test_dsti_issue_offers_price_and_term_alternatives():
         for alternative in result.alternatives
     }
 
-    assert AlternativeType.PRICE_AND_DOWN_PAYMENT in types
+    # KEEP_DOWN_PAYMENT is not returned here because it
+    # coincides with the main recommendation and would be duplicate.
+    assert AlternativeType.KEEP_DOWN_PAYMENT not in types
     assert AlternativeType.TERM_EXTENSION in types
+
+
+def test_alternatives_are_different_from_main_recommendation():
+
+    scenario = FinancialScenario(
+        property_price=D("300000"),
+        available_savings=D("100000"),
+        desired_cash_buffer=D("20000"),
+        planned_down_payment=D("60000"),
+        monthly_net_income=D("4000"),
+        current_monthly_debt=D("300"),
+        requested_loan_amount=D("240000"),
+        interest_rate_annual=D("0.03"),
+        term_years=30,
+        purchase_cost_rate=D("0.10"),
+        appraisal_value=D("300000"),
+    )
+
+    result = generate_alternatives(
+        base=scenario,
+        defaults=load_financial_defaults(),
+        targets=_targets(),
+        policy=_policy(),
+    )
+
+    main = result.recommendation
+
+    for alternative in result.alternatives:
+        assert not (
+            alternative.property_price
+            == main.presented_property_price
+            and alternative.planned_down_payment
+            == main.presented_down_payment
+        )
 
 
 def test_every_generated_alternative_is_financially_feasible():

@@ -5,6 +5,8 @@ from enum import Enum
 from .boundary_solver import (
     BoundaryTargets,
     SimulationPolicy,
+    SimulationVariablePolicy,
+    solve_boundary,
 )
 from .config import FinancialDefaults
 from .domain import FinancialResult, FinancialScenario
@@ -20,7 +22,7 @@ ZERO = Decimal("0")
 
 
 class AlternativeType(str, Enum):
-    PRICE_AND_DOWN_PAYMENT = "PRICE_AND_DOWN_PAYMENT"
+    KEEP_DOWN_PAYMENT = "KEEP_DOWN_PAYMENT"
     TERM_EXTENSION = "TERM_EXTENSION"
 
 
@@ -66,23 +68,47 @@ def _is_feasible(
     return True
 
 
-def _build_boundary_alternative(
-    base: FinancialScenario,
+def _is_different_from_main(
+    alternative: StructuringAlternative,
     recommendation: RecommendationResult,
+) -> bool:
+
+    return not (
+        alternative.property_price
+        == recommendation.presented_property_price
+        and alternative.planned_down_payment
+        == recommendation.presented_down_payment
+    )
+
+
+def _build_keep_down_payment_alternative(
+    base: FinancialScenario,
     defaults: FinancialDefaults,
     targets: BoundaryTargets,
 ) -> StructuringAlternative | None:
 
-    if (
-        recommendation.presented_property_price is None
-        or recommendation.presented_down_payment is None
-    ):
+    if base.planned_down_payment is None:
+        return None
+
+    strategy_policy = SimulationPolicy(
+        property_price=SimulationVariablePolicy.ADJUSTABLE,
+        planned_down_payment=SimulationVariablePolicy.LOCKED,
+    )
+
+    try:
+        boundary = solve_boundary(
+            base=base,
+            defaults=defaults,
+            targets=targets,
+            policy=strategy_policy,
+        )
+    except (ValueError, NotImplementedError):
         return None
 
     scenario = replace(
         base,
-        property_price=recommendation.presented_property_price,
-        planned_down_payment=recommendation.presented_down_payment,
+        property_price=boundary.rounded_property_price,
+        planned_down_payment=base.planned_down_payment,
         requested_loan_amount=None,
     )
 
@@ -95,14 +121,15 @@ def _build_boundary_alternative(
         return None
 
     return StructuringAlternative(
-        alternative_type=AlternativeType.PRICE_AND_DOWN_PAYMENT,
+        alternative_type=AlternativeType.KEEP_DOWN_PAYMENT,
         property_price=scenario.property_price,
         planned_down_payment=scenario.planned_down_payment,
         term_years=scenario.term_years,
         financial_result=result,
         explanation=(
-            "Ajustar precio y entrada hasta una estructura "
-            "que cumpla simultáneamente los objetivos configurados."
+            "Mantener la entrada prevista y ajustar el precio "
+            "del inmueble hasta una estructura que cumpla "
+            "simultáneamente los objetivos configurados."
         ),
     )
 
@@ -113,7 +140,6 @@ def _build_term_alternative(
     targets: BoundaryTargets,
 ) -> StructuringAlternative | None:
 
-    # v1: only explore realistic discrete terms above the current term.
     allowed_terms = (20, 25, 30, 35, 40)
 
     current_term = (
@@ -145,7 +171,7 @@ def _build_term_alternative(
                 term_years=term,
                 financial_result=result,
                 explanation=(
-                    "Mantener la estructura económica principal "
+                    "Mantener el precio y la entrada actuales "
                     "y ampliar el plazo para reducir la carga mensual."
                 ),
             )
@@ -168,7 +194,10 @@ def generate_alternatives(
         policy=policy,
     )
 
-    if recommendation.status != RecommendationStatus.RESTRUCTURING_AVAILABLE:
+    if (
+        recommendation.status
+        != RecommendationStatus.RESTRUCTURING_AVAILABLE
+    ):
         return AlternativesResult(
             recommendation=recommendation,
             alternatives=(),
@@ -181,23 +210,31 @@ def generate_alternatives(
 
     alternatives = []
 
-    # PRICE + DOWN PAYMENT is relevant for liquidity, LTV and DSTI.
+    # Strategy 1:
+    # Preserve the customer's planned down payment and adjust price.
     if issue_types & {
         "LIQUIDITY",
         "LTV",
         "DEBT_CAPACITY",
     }:
-        alternative = _build_boundary_alternative(
+        alternative = _build_keep_down_payment_alternative(
             base,
-            recommendation,
             defaults,
             targets,
         )
 
-        if alternative is not None:
+        if (
+            alternative is not None
+            and _is_different_from_main(
+                alternative,
+                recommendation,
+            )
+        ):
             alternatives.append(alternative)
 
-    # TERM only makes sense for debt-capacity issues.
+    # Strategy 2:
+    # Preserve price and down payment and extend the term.
+    # This is only relevant when debt capacity is the problem.
     if "DEBT_CAPACITY" in issue_types:
         alternative = _build_term_alternative(
             base,
@@ -205,7 +242,13 @@ def generate_alternatives(
             targets,
         )
 
-        if alternative is not None:
+        if (
+            alternative is not None
+            and _is_different_from_main(
+                alternative,
+                recommendation,
+            )
+        ):
             alternatives.append(alternative)
 
     return AlternativesResult(
