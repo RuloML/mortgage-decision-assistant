@@ -97,8 +97,8 @@ ISSUE_TITLES = {
 }
 
 ALTERNATIVE_TITLES = {
-    AlternativeType.PRICE_AND_DOWN_PAYMENT:
-        "Ajustar precio y entrada",
+    AlternativeType.KEEP_DOWN_PAYMENT:
+        "Mantener entrada",
     AlternativeType.TERM_EXTENSION:
         "Ampliar plazo",
 }
@@ -591,23 +591,34 @@ if st.session_state.get("analysis_ready", False):
             )
 
         with c3:
-            # Use the verified adviser-facing scenario, not the
-            # unrounded technical boundary, for displayed metrics.
-            presented_alternative = next(
-                (
-                    alternative
-                    for alternative in alternatives_result.alternatives
-                    if alternative.alternative_type
-                    == AlternativeType.PRICE_AND_DOWN_PAYMENT
-                ),
-                None,
-            )
+            presented_scenario = None
+            presented_result = None
+
+            if (
+                recommendation.presented_property_price is not None
+                and recommendation.presented_down_payment is not None
+            ):
+                presented_scenario = replace(
+                    scenario,
+                    property_price=(
+                        recommendation.presented_property_price
+                    ),
+                    planned_down_payment=(
+                        recommendation.presented_down_payment
+                    ),
+                    requested_loan_amount=None,
+                )
+
+                presented_result = calculate_financial_scenario(
+                    presented_scenario,
+                    defaults=defaults,
+                )
 
             st.metric(
                 "DSTI resultante",
                 pct(
-                    presented_alternative.financial_result.dsti
-                    if presented_alternative is not None
+                    presented_result.dsti
+                    if presented_result is not None
                     else None
                 ),
             )
@@ -621,23 +632,22 @@ if st.session_state.get("analysis_ready", False):
         # BEFORE / AFTER COMPARISON
         # ====================================================
 
-        if presented_alternative is not None:
+        if (
+            presented_scenario is not None
+            and presented_result is not None
+        ):
 
             st.subheader("Actual vs recomendación")
-
-            recommended_result = (
-                presented_alternative.financial_result
-            )
 
             comparison_rows = [
                 {
                     "Métrica": "Precio",
                     "Actual": money(scenario.property_price),
                     "Recomendación": money(
-                        presented_alternative.property_price
+                        presented_scenario.property_price
                     ),
                     "Variación": signed_money(
-                        presented_alternative.property_price
+                        presented_scenario.property_price
                         - scenario.property_price
                     ),
                 },
@@ -647,10 +657,10 @@ if st.session_state.get("analysis_ready", False):
                         scenario.planned_down_payment
                     ),
                     "Recomendación": money(
-                        presented_alternative.planned_down_payment
+                        presented_scenario.planned_down_payment
                     ),
                     "Variación": signed_money(
-                        presented_alternative.planned_down_payment
+                        presented_scenario.planned_down_payment
                         - scenario.planned_down_payment
                     ),
                 },
@@ -660,10 +670,10 @@ if st.session_state.get("analysis_ready", False):
                         base_result.monthly_payment
                     ),
                     "Recomendación": money(
-                        recommended_result.monthly_payment
+                        presented_result.monthly_payment
                     ),
                     "Variación": signed_money(
-                        recommended_result.monthly_payment
+                        presented_result.monthly_payment
                         - base_result.monthly_payment
                     ),
                 },
@@ -673,12 +683,12 @@ if st.session_state.get("analysis_ready", False):
                         ltv_value(base_result)
                     ),
                     "Recomendación": pct(
-                        ltv_value(recommended_result)
+                        ltv_value(presented_result)
                     ),
                     "Variación": (
                         f"{format_number_es(
                             float(
-                                ltv_value(recommended_result)
+                                ltv_value(presented_result)
                                 - ltv_value(base_result)
                             ) * 100,
                             1,
@@ -689,12 +699,12 @@ if st.session_state.get("analysis_ready", False):
                     "Métrica": "DSTI",
                     "Actual": pct(base_result.dsti),
                     "Recomendación": pct(
-                        recommended_result.dsti
+                        presented_result.dsti
                     ),
                     "Variación": (
                         f"{format_number_es(
                             float(
-                                recommended_result.dsti
+                                presented_result.dsti
                                 - base_result.dsti
                             ) * 100,
                             1,
@@ -705,10 +715,10 @@ if st.session_state.get("analysis_ready", False):
                     "Métrica": "Déficit de liquidez",
                     "Actual": money(base_result.cash_gap),
                     "Recomendación": money(
-                        recommended_result.cash_gap
+                        presented_result.cash_gap
                     ),
                     "Variación": signed_money(
-                        recommended_result.cash_gap
+                        presented_result.cash_gap
                         - base_result.cash_gap
                     ),
                 },
@@ -718,10 +728,10 @@ if st.session_state.get("analysis_ready", False):
                         base_result.residual_savings
                     ),
                     "Recomendación": money(
-                        recommended_result.residual_savings
+                        presented_result.residual_savings
                     ),
                     "Variación": signed_money(
-                        recommended_result.residual_savings
+                        presented_result.residual_savings
                         - base_result.residual_savings
                     ),
                 },
@@ -729,10 +739,10 @@ if st.session_state.get("analysis_ready", False):
                     "Métrica": "Plazo",
                     "Actual": f"{scenario.term_years} años",
                     "Recomendación": (
-                        f"{presented_alternative.term_years} años"
+                        f"{presented_scenario.term_years} años"
                     ),
                     "Variación": (
-                        f"{presented_alternative.term_years - scenario.term_years:+d} años"
+                        f"{presented_scenario.term_years - scenario.term_years:+d} años"
                     ),
                 },
             ]
