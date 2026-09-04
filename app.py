@@ -198,7 +198,15 @@ with st.expander("Datos avanzados"):
 # ANALYSIS
 # ============================================================
 
-if st.button("Analizar operación", type="primary"):
+analyze_clicked = st.button(
+    "Analizar operación",
+    type="primary",
+)
+
+if analyze_clicked:
+    st.session_state["analysis_ready"] = True
+
+if st.session_state.get("analysis_ready", False):
 
     scenario = FinancialScenario(
         property_price=D(property_price),
