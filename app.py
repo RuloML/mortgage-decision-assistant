@@ -784,6 +784,7 @@ if st.session_state.get("analysis_ready", False):
                     "Entrada",
                     "Precio",
                     "Plazo",
+                    "Tasación y financiación",
                 ],
             )
 
@@ -869,6 +870,58 @@ if st.session_state.get("analysis_ready", False):
                     term_years=int(new_term),
                 )
 
+            elif sensitivity_variable == "Tasación y financiación":
+
+                base_appraisal_pct = (
+                    float(scenario.appraisal_value / scenario.property_price) * 100
+                    if scenario.appraisal_value is not None
+                    and scenario.property_price > 0
+                    else 100.0
+                )
+
+                new_appraisal_pct = st.slider(
+                    "Tasación esperada respecto al precio (%)",
+                    min_value=80.0,
+                    max_value=120.0,
+                    value=float(round(base_appraisal_pct)),
+                    step=1.0,
+                    key="sens_appraisal_pct",
+                )
+
+                financing_pct = st.slider(
+                    "Financiación sobre tasación (%)",
+                    min_value=50.0,
+                    max_value=100.0,
+                    value=80.0,
+                    step=1.0,
+                    key="sens_financing_pct",
+                )
+
+                simulated_appraisal = (
+                    scenario.property_price
+                    * D(new_appraisal_pct)
+                    / D("100")
+                )
+
+                simulated_loan = min(
+                    scenario.property_price,
+                    simulated_appraisal
+                    * D(financing_pct)
+                    / D("100"),
+                )
+
+                simulated_down = (
+                    scenario.property_price
+                    - simulated_loan
+                )
+
+                sensitivity_scenario = replace(
+                    scenario,
+                    appraisal_value=simulated_appraisal,
+                    requested_loan_amount=simulated_loan,
+                    planned_down_payment=simulated_down,
+                )
+
             sensitivity_result = calculate_financial_scenario(
                 sensitivity_scenario,
                 defaults=defaults,
@@ -908,6 +961,55 @@ if st.session_state.get("analysis_ready", False):
                         sensitivity_result.cash_gap
                         - base_result.cash_gap
                     ),
+                )
+
+            if sensitivity_variable == "Tasación y financiación":
+
+                st.markdown("#### Estructura resultante")
+
+                f1, f2, f3, f4 = st.columns(4)
+
+                with f1:
+                    st.metric(
+                        "Tasación estimada",
+                        money(sensitivity_scenario.appraisal_value),
+                    )
+
+                with f2:
+                    st.metric(
+                        "Hipoteca simulada",
+                        money(sensitivity_scenario.requested_loan_amount),
+                    )
+
+                with f3:
+                    st.metric(
+                        "Entrada necesaria",
+                        money(sensitivity_scenario.planned_down_payment),
+                    )
+
+                with f4:
+                    financing_vs_price = (
+                        sensitivity_scenario.requested_loan_amount
+                        / sensitivity_scenario.property_price
+                    )
+                    st.metric(
+                        "Financiación / precio",
+                        pct(financing_vs_price),
+                    )
+
+                financing_vs_appraisal = (
+                    sensitivity_scenario.requested_loan_amount
+                    / sensitivity_scenario.appraisal_value
+                    if sensitivity_scenario.appraisal_value
+                    and sensitivity_scenario.appraisal_value > 0
+                    else None
+                )
+
+                st.caption(
+                    "Financiación sobre tasación: "
+                    f"{pct(financing_vs_appraisal)} · "
+                    "Simulación orientativa: la concesión real depende "
+                    "de la política y condiciones de cada entidad."
                 )
 
         # ====================================================
