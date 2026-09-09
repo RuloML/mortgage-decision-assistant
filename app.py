@@ -350,6 +350,13 @@ if experience_mode == "Lite · Asesor inmobiliario":
             )
 
         st.caption(
+            "El déficit de liquidez considera los gastos estimados "
+            f"de compra ({pct(defaults.purchase_cost_rate_global_default)}) "
+            "y el colchón mínimo de ahorro que se intenta preservar "
+            f"({money(defaults.desired_cash_buffer_reference)})."
+        )
+
+        st.caption(
             "Preanálisis orientativo. No constituye una "
             "decisión bancaria ni sustituye el análisis financiero."
         )
