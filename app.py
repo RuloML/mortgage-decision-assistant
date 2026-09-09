@@ -106,6 +106,15 @@ ALTERNATIVE_TITLES = {
         "Ampliar plazo",
 }
 
+DECISION_STRATEGY_TITLES = {
+    AlternativeType.KEEP_DOWN_PAYMENT:
+        "Bajar precio manteniendo la entrada",
+    AlternativeType.KEEP_PROPERTY_PRICE:
+        "Mantener precio aumentando la entrada",
+    AlternativeType.TERM_EXTENSION:
+        "Mantener estructura ampliando plazo",
+}
+
 
 # ============================================================
 # EXPERIENCE MODE
@@ -1004,11 +1013,11 @@ if st.session_state.get("analysis_ready", False):
         # DECISION MAP
         # ====================================================
 
-        st.subheader("Mapa de estrategias evaluadas")
+        st.subheader("Opciones para reestructurar la operación")
 
         st.caption(
-            "El sistema explora distintas formas de estructurar "
-            "la operación y explica cuáles son viables."
+            "El sistema analiza distintas estrategias y muestra "
+            "cuáles pueden resolver las restricciones detectadas."
         )
 
         status_icons = {
@@ -1019,16 +1028,17 @@ if st.session_state.get("analysis_ready", False):
         }
 
         status_labels = {
-            StrategyStatus.VIABLE: "Viable",
-            StrategyStatus.NOT_VIABLE: "No viable",
-            StrategyStatus.NOT_RELEVANT: "No relevante",
+            StrategyStatus.VIABLE: "Opción viable",
+            StrategyStatus.NOT_VIABLE: "No resuelve la operación",
+            StrategyStatus.NOT_RELEVANT:
+                "No aplica al problema actual",
             StrategyStatus.DUPLICATE_MAIN:
                 "Coincide con la recomendación principal",
         }
 
         for evaluation in alternatives_result.strategy_evaluations:
 
-            strategy_name = ALTERNATIVE_TITLES[
+            strategy_name = DECISION_STRATEGY_TITLES[
                 evaluation.alternative_type
             ]
 
@@ -1049,29 +1059,50 @@ if st.session_state.get("analysis_ready", False):
                 ):
 
                     alt = evaluation.alternative
+                    alt_financial = alt.financial_result
 
                     d1, d2, d3 = st.columns(3)
 
                     with d1:
-                        st.write(
-                            "**Precio:**",
+                        st.metric(
+                            "Precio",
                             money(alt.property_price),
                         )
 
                     with d2:
-                        st.write(
-                            "**Entrada:**",
+                        st.metric(
+                            "Entrada",
                             money(alt.planned_down_payment),
                         )
 
                     with d3:
-                        st.write(
-                            "**Plazo:**",
+                        st.metric(
+                            "Plazo",
                             (
                                 f"{alt.term_years} años"
                                 if alt.term_years is not None
                                 else "—"
                             ),
+                        )
+
+                    i1, i2, i3 = st.columns(3)
+
+                    with i1:
+                        st.metric(
+                            "Cuota estimada",
+                            money(alt_financial.monthly_payment),
+                        )
+
+                    with i2:
+                        st.metric(
+                            "DSTI resultante",
+                            pct(alt_financial.dsti),
+                        )
+
+                    with i3:
+                        st.metric(
+                            "LTV resultante",
+                            pct(ltv_value(alt_financial)),
                         )
 
     # ========================================================
