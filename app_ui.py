@@ -22,6 +22,12 @@ from mortgage_decision_assistant.boundary_solver import (
     SimulationPolicy,
     SimulationVariablePolicy,
 )
+from mortgage_decision_assistant.bank_fit_engine import (
+    BorrowerProfile,
+    CriterionStatus,
+    ProductStatus,
+    evaluate_bank_fit,
+)
 from mortgage_decision_assistant.config import load_financial_defaults
 from mortgage_decision_assistant.domain import FinancialScenario
 from mortgage_decision_assistant.financial_engine import calculate_financial_scenario
@@ -409,7 +415,11 @@ with col2:
         "Entrada prevista (€)", min_value=0.0, value=60000.0, step=5000.0
     )
     monthly_net_income = st.number_input(
-        "Ingresos netos mensuales (€)", min_value=1.0, value=4000.0, step=100.0
+        "Ingresos netos mensuales conjuntos (€)",
+        min_value=1.0,
+        value=4000.0,
+        step=100.0,
+        help="Suma de los ingresos netos mensuales computables de todos los titulares.",
     )
     current_monthly_debt = st.number_input(
         "Deuda mensual actual (€)", min_value=0.0, value=300.0, step=50.0
@@ -432,6 +442,47 @@ with st.expander("Datos avanzados"):
     )
     purchase_cost_rate_pct = st.number_input(
         "Gastos estimados de compra (%)", min_value=0.0, value=10.0, step=0.5
+    )
+
+with st.expander("Perfil para compatibilidad con criterios públicos de entidades"):
+    st.caption(
+        "Datos usados únicamente por el prototipo académico Bank Fit. "
+        "No predice aprobación bancaria ni sustituye el criterio profesional."
+    )
+    bank_num_borrowers = st.number_input(
+        "Número de titulares",
+        min_value=1,
+        max_value=4,
+        value=1,
+        step=1,
+        key="bank_num_borrowers",
+    )
+    borrower_ages = []
+    age_columns = st.columns(int(bank_num_borrowers))
+    for borrower_index, age_column in enumerate(age_columns, start=1):
+        with age_column:
+            borrower_ages.append(
+                int(
+                    st.number_input(
+                        f"Edad titular {borrower_index}",
+                        min_value=18,
+                        max_value=90,
+                        value=40,
+                        step=1,
+                        key=f"bank_age_{borrower_index}",
+                    )
+                )
+            )
+
+    property_use_label = st.selectbox(
+        "Uso de la vivienda",
+        ["Vivienda habitual", "Segunda residencia"],
+        key="bank_property_use",
+    )
+    residency_label = st.selectbox(
+        "Residencia",
+        ["Residente en España", "No residente", "No indicado"],
+        key="bank_residency",
     )
 
 analyze_clicked = st.button("Analizar operación", type="primary")
@@ -510,6 +561,211 @@ if st.session_state.get("analysis_ready", False):
         dsti_target=targets.dsti_target,
     )
     render_status_cards(status_payload)
+
+    # ========================================================
+    # BANK FIT · ACADEMIC / TFM PROTOTYPE
+    # ========================================================
+
+    st.subheader("Compatibilidad con criterios públicos de entidades")
+    st.caption(
+        "Prototipo académico para TFM. Compara la estructura con criterios "
+        "públicos documentados; no estima probabilidad de aprobación, no "
+        "recomienda una entidad y no debe utilizarse operativamente con "
+        "prestatarios reales sin revisión jurídica previa."
+    )
+
+    bank_profile = BorrowerProfile(
+        borrower_ages=tuple(borrower_ages),
+        property_use=(
+            "PRIMARY_HOME"
+            if property_use_label == "Vivienda habitual"
+            else "SECOND_HOME"
+        ),
+        residency_status=(
+            "RESIDENT_ES"
+            if residency_label == "Residente en España"
+            else (
+                "NON_RESIDENT"
+                if residency_label == "No residente"
+                else None
+            )
+        ),
+    )
+
+    bank_fit_scenario = scenario
+    bank_fit_financial_result = base_result
+    bank_fit_scenario_label = "Escenario actual"
+
+    if recommendation.status == RecommendationStatus.RESTRUCTURING_AVAILABLE:
+        if (
+            recommendation.presented_property_price is not None
+            and recommendation.presented_down_payment is not None
+        ):
+            bank_fit_recommended_scenario = replace(
+                scenario,
+                property_price=recommendation.presented_property_price,
+                planned_down_payment=recommendation.presented_down_payment,
+                requested_loan_amount=None,
+            )
+            bank_fit_recommended_result = calculate_financial_scenario(
+                bank_fit_recommended_scenario,
+                defaults=defaults,
+            )
+            bank_fit_choice = st.radio(
+                "Estructura a comparar con las entidades",
+                ["Recomendada", "Actual"],
+                horizontal=True,
+                key="bank_fit_scenario_choice",
+                help=(
+                    "Por defecto se evalúa la estructura recomendada. "
+                    "Puedes volver al escenario actual para comparar."
+                ),
+            )
+            if bank_fit_choice == "Recomendada":
+                bank_fit_scenario = bank_fit_recommended_scenario
+                bank_fit_financial_result = bank_fit_recommended_result
+                bank_fit_scenario_label = "Escenario recomendado"
+
+    st.caption(f"Estructura evaluada: **{bank_fit_scenario_label}**")
+
+    bank_fit_results = evaluate_bank_fit(
+        scenario=bank_fit_scenario,
+        result=bank_fit_financial_result,
+        profile=bank_profile,
+    )
+
+    comparable_results = [
+        item
+        for item in bank_fit_results
+        if item.product_status != ProductStatus.INELIGIBLE_PRODUCT
+    ]
+
+    if not comparable_results:
+        st.info(
+            "No hay productos comparables con el perfil indicado dentro "
+            "del dataset académico actual."
+        )
+    else:
+        for bank_fit in comparable_results:
+            with st.container(border=True):
+                st.markdown(
+                    f"### {bank_fit.bank_name} · {bank_fit.product_name}"
+                )
+
+                if bank_fit.product_status == ProductStatus.INSUFFICIENT_INFORMATION:
+                    st.warning(
+                        "Información insuficiente para comparar este producto "
+                        "con fiabilidad."
+                    )
+                elif bank_fit.hard_mismatches > 0:
+                    st.warning(
+                        "Se han detectado criterios públicos duros que la "
+                        "estructura evaluada no cumple."
+                    )
+                else:
+                    st.success(
+                        "No se han detectado incumplimientos en los criterios "
+                        "públicos duros que han podido evaluarse."
+                    )
+
+                evaluable_hard = (
+                    bank_fit.hard_matches + bank_fit.hard_mismatches
+                )
+                compatibility_text = (
+                    f"{bank_fit.hard_matches}/{evaluable_hard}"
+                    if evaluable_hard > 0
+                    else "—"
+                )
+
+                bf1, bf2, bf3, bf4 = st.columns(4)
+                with bf1:
+                    st.metric("Criterios duros", compatibility_text)
+                with bf2:
+                    st.metric(
+                        "Cobertura core",
+                        f"{float(bank_fit.core_coverage) * 100:.0f}%",
+                    )
+                with bf3:
+                    st.metric(
+                        "Mismatches duros",
+                        str(bank_fit.hard_mismatches),
+                    )
+                with bf4:
+                    st.metric(
+                        "Criterios desconocidos",
+                        str(bank_fit.unknown_count),
+                    )
+
+                if (
+                    bank_fit.guidance_matches
+                    or bank_fit.guidance_mismatches
+                ):
+                    st.caption(
+                        "Orientaciones públicas: "
+                        f"{bank_fit.guidance_matches} compatibles · "
+                        f"{bank_fit.guidance_mismatches} no compatibles. "
+                        "Estas orientaciones no se tratan como límites duros."
+                    )
+
+                with st.expander("Ver criterios y trazabilidad"):
+                    rows = []
+                    for criterion in bank_fit.criteria:
+                        status_label = {
+                            CriterionStatus.MATCH: "Cumple",
+                            CriterionStatus.MISMATCH: "No cumple",
+                            CriterionStatus.UNKNOWN: "Desconocido",
+                            CriterionStatus.NOT_APPLICABLE: "No aplica",
+                        }[criterion.status]
+
+                        rows.append(
+                            {
+                                "Criterio": criterion.criterion_id,
+                                "Estado": status_label,
+                                "Evidencia": criterion.evidence_type.value,
+                                "Valor observado": (
+                                    str(criterion.actual_value)
+                                    if criterion.actual_value is not None
+                                    else "—"
+                                ),
+                                "Criterio publicado": (
+                                    str(criterion.criterion_value)
+                                    if criterion.criterion_value is not None
+                                    else "—"
+                                ),
+                                "Fuente": criterion.source_status,
+                                "Verificado": criterion.verified_at or "—",
+                                "Revisar antes de": criterion.review_due_at or "—",
+                            }
+                        )
+
+                    st.dataframe(
+                        rows,
+                        width="stretch",
+                        hide_index=True,
+                    )
+
+                    source_urls = []
+                    for criterion in bank_fit.criteria:
+                        if (
+                            criterion.source_url
+                            and criterion.source_url not in source_urls
+                        ):
+                            source_urls.append(criterion.source_url)
+
+                    if source_urls:
+                        st.markdown("**Fuentes oficiales consultadas**")
+                        for source_index, source_url in enumerate(
+                            source_urls,
+                            start=1,
+                        ):
+                            st.markdown(
+                                f"- [Fuente oficial {source_index}]({source_url})"
+                            )
+
+                st.caption(
+                    "Compatibilidad documental, no recomendación de entidad "
+                    "ni predicción de concesión."
+                )
 
     if recommendation.status == RecommendationStatus.RESTRUCTURING_AVAILABLE:
         st.subheader("Objetivo de la recomendación")
