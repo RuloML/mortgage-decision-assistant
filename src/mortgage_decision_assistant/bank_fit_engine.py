@@ -209,6 +209,8 @@ def _evaluate_minimum(
         criterion_value=minimum,
         source_status=str(criterion.get("source_status", "UNKNOWN")),
         source_url=criterion.get("source_url"),
+        verified_at=criterion.get("verified_at"),
+        review_due_at=criterion.get("review_due_at"),
         explanation=(
             f"{explanation_label}: valor observado {actual_value} "
             f"frente a mínimo publicado {minimum}."
