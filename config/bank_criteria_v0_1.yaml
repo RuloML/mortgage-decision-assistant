@@ -309,12 +309,13 @@ products:
         verified_at: "2026-09-18"
         review_due_at: "2026-12-17"
       - criterion_id: MAX_TERM_YEARS
-        value: 25
+        value: 30
         evidence_type: HARD_PUBLIC_CRITERION
-        source_status: VERIFIED_OFFICIAL
+        source_status: CONFLICTING
         source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
         verified_at: "2026-09-18"
-        review_due_at: "2026-12-17"
+        review_due_at: "2026-10-18"
+        notes: "The official fixed-mortgage page currently contains inconsistent term references (30 years in the FAQ/examples and 25 years in one offer block). Treat as UNKNOWN until reconciled for the exact product variant."
       - criterion_id: MAX_AGE_AT_MATURITY
         value: 75
         borrower_selection_rule: ALL_BORROWERS
@@ -349,12 +350,13 @@ products:
         verified_at: "2026-09-18"
         review_due_at: "2026-12-17"
       - criterion_id: MAX_TERM_YEARS
-        value: 25
+        value: 30
         evidence_type: HARD_PUBLIC_CRITERION
-        source_status: VERIFIED_OFFICIAL
+        source_status: CONFLICTING
         source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
         verified_at: "2026-09-18"
-        review_due_at: "2026-12-17"
+        review_due_at: "2026-10-18"
+        notes: "The official fixed-mortgage page currently contains inconsistent term references (30 years in the FAQ/examples and 25 years in one offer block). Treat as UNKNOWN until reconciled for the exact product variant."
       - criterion_id: MAX_AGE_AT_MATURITY
         value: 75
         borrower_selection_rule: ALL_BORROWERS
