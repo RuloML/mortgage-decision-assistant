@@ -1,0 +1,373 @@
+version: "0.1"
+verified_at: "2026-09-18"
+validation_status: "ACADEMIC_VERIFIED_OFFICIAL_SOURCES"
+legal_status: "PENDING_FORMAL_LCCI_REVIEW_BEFORE_OPERATIONAL_USE"
+
+coverage_policy:
+  minimum_comparable_coverage: "0.40"
+  core_criteria:
+    - MAX_LTV
+    - MAX_TERM_YEARS
+    - MAX_AGE_AT_MATURITY
+  optional_public_criteria:
+    - MAX_DSTI
+    - MAX_MORTGAGE_PAYMENT_RATIO
+    - MAX_TOTAL_DEBT_RATIO
+    - MIN_TOTAL_MONTHLY_INCOME
+    - MAX_FINANCING_AMOUNT
+
+review_policy:
+  cadence_days: 90
+  owner: "project_owner"
+  note: "Manual review for TFM; re-verify sooner if a bank changes the product."
+
+products:
+  - product_id: SANTANDER_STANDARD_PRIMARY_HOME
+    bank_id: SANTANDER
+    bank_name: "Banco Santander"
+    product_name: "Hipoteca Variable Bonificada - vivienda habitual"
+    eligibility:
+      property_use: PRIMARY_HOME
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.80"
+        criterion_basis: APPRAISAL_VALUE
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancosantander.es/particulares/hipotecas/hipoteca-variable"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 30
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancosantander.es/particulares/hipotecas/hipoteca-variable"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 80
+        borrower_selection_rule: UNSPECIFIED_BORROWER
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancosantander.es/particulares/hipotecas/hipoteca-variable"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+        notes: "The public wording refers to the holder at signing but does not specify a selection rule for multiple borrowers."
+
+  - product_id: SANTANDER_STANDARD_SECOND_HOME
+    bank_id: SANTANDER
+    bank_name: "Banco Santander"
+    product_name: "Hipoteca Variable Bonificada - segunda residencia"
+    eligibility:
+      property_use: SECOND_HOME
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.70"
+        criterion_basis: APPRAISAL_VALUE
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancosantander.es/particulares/hipotecas/hipoteca-variable"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 25
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancosantander.es/particulares/hipotecas/hipoteca-variable"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 80
+        borrower_selection_rule: UNSPECIFIED_BORROWER
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancosantander.es/particulares/hipotecas/hipoteca-variable"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+
+  - product_id: BBVA_FIXED_PRIMARY_HOME
+    bank_id: BBVA
+    bank_name: "BBVA"
+    product_name: "Hipoteca Fija BBVA - vivienda habitual"
+    eligibility:
+      property_use: PRIMARY_HOME
+      residency_status: RESIDENT_ES
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.80"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bbva.es/personas/productos/hipotecas/hipoteca-fija.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 30
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bbva.es/personas/productos/hipotecas/hipoteca-fija.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 75
+        borrower_selection_rule: YOUNGEST_BORROWER
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bbva.es/personas/productos/hipotecas/hipoteca-fija.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+
+  - product_id: BBVA_FIXED_SECOND_HOME
+    bank_id: BBVA
+    bank_name: "BBVA"
+    product_name: "Hipoteca Fija BBVA - segunda vivienda"
+    eligibility:
+      property_use: SECOND_HOME
+      residency_status: RESIDENT_ES
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.70"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bbva.es/personas/productos/hipotecas/hipoteca-fija.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 30
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bbva.es/personas/productos/hipotecas/hipoteca-fija.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 75
+        borrower_selection_rule: YOUNGEST_BORROWER
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bbva.es/personas/productos/hipotecas/hipoteca-fija.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+
+  - product_id: CAIXABANK_CASAFACIL_PRIMARY_HOME
+    bank_id: CAIXABANK
+    bank_name: "CaixaBank"
+    product_name: "Hipoteca CasaFácil Fijo - vivienda habitual"
+    eligibility:
+      property_use: PRIMARY_HOME
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.80"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.caixabank.es/particular/hipotecas/casafacil.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 30
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.caixabank.es/particular/hipotecas/casafacil.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 80
+        borrower_selection_rule: UNKNOWN_DUE_TO_CONFLICT
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: CONFLICTING
+        source_url: "https://www.caixabank.es/particular/hipotecas/casafacil.html"
+        conflicting_source_url: "https://www.caixabank.es/particular/hipotecas/guia-comprar-vivienda.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-10-18"
+        notes: "CasaFácil product page says oldest holder; mortgage guide says youngest holder. Engine must return UNKNOWN until reconciled."
+
+  - product_id: CAIXABANK_CASAFACIL_SECOND_HOME
+    bank_id: CAIXABANK
+    bank_name: "CaixaBank"
+    product_name: "Hipoteca CasaFácil - segunda vivienda"
+    eligibility:
+      property_use: SECOND_HOME
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.70"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.caixabank.es/particular/hipotecas/comparador-hipotecas.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 30
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.caixabank.es/particular/hipotecas/comparador-hipotecas.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 80
+        borrower_selection_rule: UNKNOWN_DUE_TO_CONFLICT
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: CONFLICTING
+        source_url: "https://www.caixabank.es/particular/hipotecas/casafacil.html"
+        conflicting_source_url: "https://www.caixabank.es/particular/hipotecas/guia-comprar-vivienda.html"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-10-18"
+
+  - product_id: SABADELL_STANDARD_PRIMARY_HOME
+    bank_id: SABADELL
+    bank_name: "Banco Sabadell"
+    product_name: "Hipoteca estándar - primera residencia"
+    eligibility:
+      property_use: PRIMARY_HOME
+      residency_status: RESIDENT_ES
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.80"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/fipre_diprec_cas_hipoteca_fija_bonificada_25anos.pdf"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 30
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/fipre_diprec_cas_hipoteca_fija_bonificada_25anos.pdf"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 75
+        borrower_selection_rule: ALL_BORROWERS
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/fipre_diprec_cas_hipoteca_fija_bonificada_25anos.pdf"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_MORTGAGE_PAYMENT_RATIO
+        value: "0.30"
+        evidence_type: PUBLIC_GUIDANCE
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/particulares/hipotecas/que-casa-puedo-comprar-con-mi-sueldo/"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TOTAL_DEBT_RATIO
+        value: "0.35"
+        evidence_type: PUBLIC_GUIDANCE
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/blog/como-influye-tener-un-prestamo-al-pedir-una-hipoteca/"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+
+  - product_id: SABADELL_STANDARD_SECOND_HOME
+    bank_id: SABADELL
+    bank_name: "Banco Sabadell"
+    product_name: "Hipoteca estándar - segunda residencia"
+    eligibility:
+      property_use: SECOND_HOME
+      residency_status: RESIDENT_ES
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.70"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/fipre_diprec_cas_hipoteca_fija_bonificada_25anos.pdf"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 30
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/fipre_diprec_cas_hipoteca_fija_bonificada_25anos.pdf"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 75
+        borrower_selection_rule: ALL_BORROWERS
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bancsabadell.com/bsnacional/es/fipre_diprec_cas_hipoteca_fija_bonificada_25anos.pdf"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+
+  - product_id: BANKINTER_FIXED_PRIMARY_HOME
+    bank_id: BANKINTER
+    bank_name: "Bankinter"
+    product_name: "Hipoteca Fija - vivienda habitual"
+    eligibility:
+      property_use: PRIMARY_HOME
+      residency_status: RESIDENT_ES
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.80"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 25
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 75
+        borrower_selection_rule: ALL_BORROWERS
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MIN_TOTAL_MONTHLY_INCOME
+        value: "2500"
+        operator: GT
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+
+  - product_id: BANKINTER_FIXED_SECOND_HOME
+    bank_id: BANKINTER
+    bank_name: "Bankinter"
+    product_name: "Hipoteca Fija - segunda vivienda"
+    eligibility:
+      property_use: SECOND_HOME
+      residency_status: RESIDENT_ES
+    criteria:
+      - criterion_id: MAX_LTV
+        value: "0.60"
+        criterion_basis: LOWER_OF_PURCHASE_PRICE_AND_APPRAISAL
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_TERM_YEARS
+        value: 25
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MAX_AGE_AT_MATURITY
+        value: 75
+        borrower_selection_rule: ALL_BORROWERS
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
+      - criterion_id: MIN_TOTAL_MONTHLY_INCOME
+        value: "2500"
+        operator: GT
+        evidence_type: HARD_PUBLIC_CRITERION
+        source_status: VERIFIED_OFFICIAL
+        source_url: "https://www.bankinter.com/banca/hipotecas-prestamos/hipotecas/hipoteca-fija"
+        verified_at: "2026-09-18"
+        review_due_at: "2026-12-17"
