@@ -529,726 +529,679 @@ if st.session_state.get("analysis_ready", False):
     base_result = recommendation.base_financial_result
 
     st.divider()
-    st.subheader("Situación actual")
 
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.metric("Cuota mensual", money_text(base_result.monthly_payment))
-    with m2:
-        st.metric("Financiación sobre valor (LTV)", pct_text(ltv_value(base_result)))
-    with m3:
-        st.metric("Ratio de endeudamiento (DSTI)", pct_text(base_result.dsti))
-    with m4:
-        st.metric("Déficit de liquidez", money_text(base_result.cash_gap))
-
-    st.subheader("Diagnóstico")
-
-    if recommendation.status == RecommendationStatus.WITHIN_TARGETS:
-        st.success("La estructura actual cumple los objetivos configurados analizados.")
-    elif recommendation.status in {
-        RecommendationStatus.INCOMPLETE,
-        RecommendationStatus.NO_FEASIBLE_STRUCTURE_FOUND,
-    }:
-        st.warning(recommendation.summary)
-    else:
-        for issue in recommendation.base_issues:
-            title = ISSUE_TITLES.get(issue.type, issue.type)
-            st.warning(f"**{title}:** {issue.explanation}")
-
-    status_payload = build_operation_status_payload(
-        base_result,
-        ltv_target=targets.ltv_target,
-        dsti_target=targets.dsti_target,
-    )
-    render_status_cards(status_payload)
-
-    # ========================================================
-    # BANK FIT · ACADEMIC / TFM PROTOTYPE
-    # ========================================================
-
-    st.subheader("Compatibilidad con criterios públicos de entidades")
-    st.caption(
-        "Prototipo académico para TFM. Compara la estructura con criterios "
-        "públicos documentados; no estima probabilidad de aprobación, no "
-        "recomienda una entidad y no debe utilizarse operativamente con "
-        "prestatarios reales sin revisión jurídica previa."
+    analysis_tab, bank_fit_tab, scenarios_tab = st.tabs(
+        ["Análisis y recomendación", "Bank Fit", "Escenarios"]
     )
 
-    bank_profile = BorrowerProfile(
-        borrower_ages=tuple(borrower_ages),
-        property_use=(
-            "PRIMARY_HOME"
-            if property_use_label == "Vivienda habitual"
-            else "SECOND_HOME"
-        ),
-        residency_status=(
-            "RESIDENT_ES"
-            if residency_label == "Residente en España"
-            else (
-                "NON_RESIDENT"
-                if residency_label == "No residente"
-                else None
-            )
-        ),
-    )
+    with analysis_tab:
+        st.subheader("Situación actual")
 
-    bank_fit_scenario = scenario
-    bank_fit_financial_result = base_result
-    bank_fit_scenario_label = "Escenario actual"
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric("Cuota mensual", money_text(base_result.monthly_payment))
+        with m2:
+            st.metric("Financiación sobre valor (LTV)", pct_text(ltv_value(base_result)))
+        with m3:
+            st.metric("Ratio de endeudamiento (DSTI)", pct_text(base_result.dsti))
+        with m4:
+            st.metric("Déficit de liquidez", money_text(base_result.cash_gap))
 
-    if recommendation.status == RecommendationStatus.RESTRUCTURING_AVAILABLE:
-        if (
-            recommendation.presented_property_price is not None
-            and recommendation.presented_down_payment is not None
-        ):
-            bank_fit_recommended_scenario = replace(
-                scenario,
-                property_price=recommendation.presented_property_price,
-                planned_down_payment=recommendation.presented_down_payment,
-                requested_loan_amount=None,
-            )
-            bank_fit_recommended_result = calculate_financial_scenario(
-                bank_fit_recommended_scenario,
-                defaults=defaults,
-            )
-            bank_fit_choice = st.radio(
-                "Estructura a comparar con las entidades",
-                ["Recomendada", "Actual"],
-                horizontal=True,
-                key="bank_fit_scenario_choice",
-                help=(
-                    "Por defecto se evalúa la estructura recomendada. "
-                    "Puedes volver al escenario actual para comparar."
-                ),
-            )
-            if bank_fit_choice == "Recomendada":
-                bank_fit_scenario = bank_fit_recommended_scenario
-                bank_fit_financial_result = bank_fit_recommended_result
-                bank_fit_scenario_label = "Escenario recomendado"
+        st.subheader("Diagnóstico")
 
-    st.caption(f"Estructura evaluada: **{bank_fit_scenario_label}**")
+        if recommendation.status == RecommendationStatus.WITHIN_TARGETS:
+            st.success("La estructura actual cumple los objetivos configurados analizados.")
+        elif recommendation.status in {
+            RecommendationStatus.INCOMPLETE,
+            RecommendationStatus.NO_FEASIBLE_STRUCTURE_FOUND,
+        }:
+            st.warning(recommendation.summary)
+        else:
+            for issue in recommendation.base_issues:
+                title = ISSUE_TITLES.get(issue.type, issue.type)
+                st.warning(f"**{title}:** {issue.explanation}")
 
-    bank_fit_results = evaluate_bank_fit(
-        scenario=bank_fit_scenario,
-        result=bank_fit_financial_result,
-        profile=bank_profile,
-    )
-
-    comparable_results = [
-        item
-        for item in bank_fit_results
-        if item.product_status != ProductStatus.INELIGIBLE_PRODUCT
-    ]
-
-    if not comparable_results:
-        st.info(
-            "No hay productos comparables con el perfil indicado dentro "
-            "del dataset académico actual."
+        status_payload = build_operation_status_payload(
+            base_result,
+            ltv_target=targets.ltv_target,
+            dsti_target=targets.dsti_target,
         )
-    else:
-        for bank_fit in comparable_results:
-            with st.container(border=True):
-                st.markdown(
-                    f"### {bank_fit.bank_name} · {bank_fit.product_name}"
+        render_status_cards(status_payload)
+
+        if recommendation.status == RecommendationStatus.RESTRUCTURING_AVAILABLE:
+            if (
+                recommendation.presented_property_price is not None
+                and recommendation.presented_down_payment is not None
+            ):
+                bank_fit_recommended_scenario = replace(
+                    scenario,
+                    property_price=recommendation.presented_property_price,
+                    planned_down_payment=recommendation.presented_down_payment,
+                    requested_loan_amount=None,
                 )
-
-                if bank_fit.product_status == ProductStatus.INSUFFICIENT_INFORMATION:
-                    st.warning(
-                        "Información insuficiente para comparar este producto "
-                        "con fiabilidad."
-                    )
-                elif bank_fit.hard_mismatches > 0:
-                    st.warning(
-                        "Se han detectado criterios públicos duros que la "
-                        "estructura evaluada no cumple."
-                    )
-                else:
-                    st.success(
-                        "No se han detectado incumplimientos en los criterios "
-                        "públicos duros que han podido evaluarse."
-                    )
-
-                evaluable_hard = (
-                    bank_fit.hard_matches + bank_fit.hard_mismatches
+                bank_fit_recommended_result = calculate_financial_scenario(
+                    bank_fit_recommended_scenario,
+                    defaults=defaults,
                 )
-                compatibility_text = (
-                    f"{bank_fit.hard_matches}/{evaluable_hard}"
-                    if evaluable_hard > 0
-                    else "—"
+                bank_fit_choice = st.radio(
+                    "Estructura a comparar con las entidades",
+                    ["Recomendada", "Actual"],
+                    horizontal=True,
+                    key="bank_fit_scenario_choice",
+                    help=(
+                        "Por defecto se evalúa la estructura recomendada. "
+                        "Puedes volver al escenario actual para comparar."
+                    ),
                 )
+                if bank_fit_choice == "Recomendada":
+                    bank_fit_scenario = bank_fit_recommended_scenario
+                    bank_fit_financial_result = bank_fit_recommended_result
+                    bank_fit_scenario_label = "Escenario recomendado"
 
-                bf1, bf2, bf3, bf4 = st.columns(4)
-                with bf1:
-                    st.metric("Criterios duros", compatibility_text)
-                with bf2:
-                    st.metric(
-                        "Cobertura core",
-                        f"{float(bank_fit.core_coverage) * 100:.0f}%",
-                    )
-                with bf3:
-                    st.metric(
-                        "Mismatches duros",
-                        str(bank_fit.hard_mismatches),
-                    )
-                with bf4:
-                    st.metric(
-                        "Criterios desconocidos",
-                        str(bank_fit.unknown_count),
+        st.caption(f"Estructura evaluada: **{bank_fit_scenario_label}**")
+
+        bank_fit_results = evaluate_bank_fit(
+            scenario=bank_fit_scenario,
+            result=bank_fit_financial_result,
+            profile=bank_profile,
+        )
+
+        comparable_results = [
+            item
+            for item in bank_fit_results
+            if item.product_status != ProductStatus.INELIGIBLE_PRODUCT
+        ]
+
+        if not comparable_results:
+            st.info(
+                "No hay productos comparables con el perfil indicado dentro "
+                "del dataset académico actual."
+            )
+        else:
+            for bank_fit in comparable_results:
+                with st.container(border=True):
+                    st.markdown(
+                        f"### {bank_fit.bank_name} · {bank_fit.product_name}"
                     )
 
-                if (
-                    bank_fit.guidance_matches
-                    or bank_fit.guidance_mismatches
-                ):
-                    st.caption(
-                        "Orientaciones públicas: "
-                        f"{bank_fit.guidance_matches} compatibles · "
-                        f"{bank_fit.guidance_mismatches} no compatibles. "
-                        "Estas orientaciones no se tratan como límites duros."
-                    )
-
-                with st.expander("Ver criterios y trazabilidad"):
-                    rows = []
-                    for criterion in bank_fit.criteria:
-                        status_label = {
-                            CriterionStatus.MATCH: "Cumple",
-                            CriterionStatus.MISMATCH: "No cumple",
-                            CriterionStatus.UNKNOWN: "Desconocido",
-                            CriterionStatus.NOT_APPLICABLE: "No aplica",
-                        }[criterion.status]
-
-                        rows.append(
-                            {
-                                "Criterio": criterion.criterion_id,
-                                "Estado": status_label,
-                                "Evidencia": criterion.evidence_type.value,
-                                "Valor observado": (
-                                    str(criterion.actual_value)
-                                    if criterion.actual_value is not None
-                                    else "—"
-                                ),
-                                "Criterio publicado": (
-                                    str(criterion.criterion_value)
-                                    if criterion.criterion_value is not None
-                                    else "—"
-                                ),
-                                "Fuente": criterion.source_status,
-                                "Verificado": criterion.verified_at or "—",
-                                "Revisar antes de": criterion.review_due_at or "—",
-                            }
+                    if bank_fit.product_status == ProductStatus.INSUFFICIENT_INFORMATION:
+                        st.warning(
+                            "Información insuficiente para comparar este producto "
+                            "con fiabilidad."
+                        )
+                    elif bank_fit.hard_mismatches > 0:
+                        st.warning(
+                            "Se han detectado criterios públicos duros que la "
+                            "estructura evaluada no cumple."
+                        )
+                    else:
+                        st.success(
+                            "No se han detectado incumplimientos en los criterios "
+                            "públicos duros que han podido evaluarse."
                         )
 
+                    evaluable_hard = (
+                        bank_fit.hard_matches + bank_fit.hard_mismatches
+                    )
+                    compatibility_text = (
+                        f"{bank_fit.hard_matches}/{evaluable_hard}"
+                        if evaluable_hard > 0
+                        else "—"
+                    )
+
+                    bf1, bf2, bf3, bf4 = st.columns(4)
+                    with bf1:
+                        st.metric("Criterios duros", compatibility_text)
+                    with bf2:
+                        st.metric(
+                            "Cobertura core",
+                            f"{float(bank_fit.core_coverage) * 100:.0f}%",
+                        )
+                    with bf3:
+                        st.metric(
+                            "Mismatches duros",
+                            str(bank_fit.hard_mismatches),
+                        )
+                    with bf4:
+                        st.metric(
+                            "Criterios desconocidos",
+                            str(bank_fit.unknown_count),
+                        )
+
+                    if (
+                        bank_fit.guidance_matches
+                        or bank_fit.guidance_mismatches
+                    ):
+                        st.caption(
+                            "Orientaciones públicas: "
+                            f"{bank_fit.guidance_matches} compatibles · "
+                            f"{bank_fit.guidance_mismatches} no compatibles. "
+                            "Estas orientaciones no se tratan como límites duros."
+                        )
+
+                    with st.expander("Ver criterios y trazabilidad"):
+                        rows = []
+                        for criterion in bank_fit.criteria:
+                            status_label = {
+                                CriterionStatus.MATCH: "Cumple",
+                                CriterionStatus.MISMATCH: "No cumple",
+                                CriterionStatus.UNKNOWN: "Desconocido",
+                                CriterionStatus.NOT_APPLICABLE: "No aplica",
+                            }[criterion.status]
+
+                            rows.append(
+                                {
+                                    "Criterio": criterion.criterion_id,
+                                    "Estado": status_label,
+                                    "Evidencia": criterion.evidence_type.value,
+                                    "Valor observado": (
+                                        str(criterion.actual_value)
+                                        if criterion.actual_value is not None
+                                        else "—"
+                                    ),
+                                    "Criterio publicado": (
+                                        str(criterion.criterion_value)
+                                        if criterion.criterion_value is not None
+                                        else "—"
+                                    ),
+                                    "Fuente": criterion.source_status,
+                                    "Verificado": criterion.verified_at or "—",
+                                    "Revisar antes de": criterion.review_due_at or "—",
+                                }
+                            )
+
+                        st.dataframe(
+                            rows,
+                            width="stretch",
+                            hide_index=True,
+                        )
+
+                        source_urls = []
+                        for criterion in bank_fit.criteria:
+                            if (
+                                criterion.source_url
+                                and criterion.source_url not in source_urls
+                            ):
+                                source_urls.append(criterion.source_url)
+
+                        if source_urls:
+                            st.markdown("**Fuentes oficiales consultadas**")
+                            for source_index, source_url in enumerate(
+                                source_urls,
+                                start=1,
+                            ):
+                                st.markdown(
+                                    f"- [Fuente oficial {source_index}]({source_url})"
+                                )
+
+                    st.caption(
+                        "Compatibilidad documental, no recomendación de entidad "
+                        "ni predicción de concesión."
+                    )
+
+        if recommendation.status == RecommendationStatus.RESTRUCTURING_AVAILABLE:
+            st.subheader("Objetivo de la recomendación")
+            st.write(
+                "**Mantener el mayor precio posible dentro de los objetivos analizados.**"
+            )
+            with st.expander("¿Por qué esta recomendación?"):
+                st.write(
+                    "El sistema busca una estructura que cumpla los objetivos "
+                    "configurados de liquidez, financiación y ratio de "
+                    "endeudamiento, intentando conservar el mayor precio de "
+                    "compra posible."
+                )
+
+            presented_scenario = None
+            presented_result = None
+
+            if (
+                recommendation.presented_property_price is not None
+                and recommendation.presented_down_payment is not None
+            ):
+                presented_scenario = replace(
+                    scenario,
+                    property_price=recommendation.presented_property_price,
+                    planned_down_payment=recommendation.presented_down_payment,
+                    requested_loan_amount=None,
+                )
+                presented_result = calculate_financial_scenario(
+                    presented_scenario,
+                    defaults=defaults,
+                )
+
+            st.subheader("Recomendación principal")
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric(
+                    "Precio orientativo",
+                    money_text(recommendation.presented_property_price),
+                    delta=signed_money(recommendation.property_price_change),
+                )
+            with c2:
+                st.metric(
+                    "Entrada orientativa",
+                    money_text(recommendation.presented_down_payment),
+                    delta=signed_money(recommendation.down_payment_change),
+                )
+            with c3:
+                st.metric(
+                    "Ratio de endeudamiento resultante",
+                    pct_text(presented_result.dsti if presented_result else None),
+                )
+
+            st.caption(
+                "Esta propuesta conserva el mayor precio posible entre las "
+                "estructuras evaluadas que cumplen los objetivos configurados."
+            )
+
+            if presented_scenario is not None and presented_result is not None:
+                comparison_payload = build_recommendation_comparison_payload(
+                    base_scenario=scenario,
+                    base_result=base_result,
+                    recommended_scenario=presented_scenario,
+                    recommended_result=presented_result,
+                    ltv_target=targets.ltv_target,
+                    dsti_target=targets.dsti_target,
+                )
+                render_actual_vs_recommended(comparison_payload)
+
+                with st.expander("Ver comparación técnica completa"):
+                    technical_rows = [
+                        {
+                            "Métrica": "Precio",
+                            "Actual": money_text(scenario.property_price),
+                            "Recomendado": money_text(presented_scenario.property_price),
+                        },
+                        {
+                            "Métrica": "Entrada",
+                            "Actual": money_text(scenario.planned_down_payment),
+                            "Recomendado": money_text(
+                                presented_scenario.planned_down_payment
+                            ),
+                        },
+                        {
+                            "Métrica": "Cuota mensual",
+                            "Actual": money_text(base_result.monthly_payment),
+                            "Recomendado": money_text(presented_result.monthly_payment),
+                        },
+                        {
+                            "Métrica": "Financiación sobre valor (LTV)",
+                            "Actual": pct_text(ltv_value(base_result)),
+                            "Recomendado": pct_text(ltv_value(presented_result)),
+                        },
+                        {
+                            "Métrica": "Ratio de endeudamiento (DSTI)",
+                            "Actual": pct_text(base_result.dsti),
+                            "Recomendado": pct_text(presented_result.dsti),
+                        },
+                        {
+                            "Métrica": "Déficit de liquidez",
+                            "Actual": money_text(base_result.cash_gap),
+                            "Recomendado": money_text(presented_result.cash_gap),
+                        },
+                        {
+                            "Métrica": "Ahorro residual",
+                            "Actual": money_text(base_result.residual_savings),
+                            "Recomendado": money_text(presented_result.residual_savings),
+                        },
+                        {
+                            "Métrica": "Plazo",
+                            "Actual": f"{scenario.term_years} años",
+                            "Recomendado": f"{presented_scenario.term_years} años",
+                        },
+                    ]
                     st.dataframe(
-                        rows,
-                        width="stretch",
+                        technical_rows,
+                        use_container_width=True,
                         hide_index=True,
                     )
 
-                    source_urls = []
-                    for criterion in bank_fit.criteria:
-                        if (
-                            criterion.source_url
-                            and criterion.source_url not in source_urls
-                        ):
-                            source_urls.append(criterion.source_url)
+            st.subheader("Otras estrategias")
+            st.caption(
+                "Cada estrategia responde a un objetivo distinto. El sistema muestra cuáles "
+                "pueden resolver las restricciones detectadas sin duplicar la recomendación principal."
+            )
 
-                    if source_urls:
-                        st.markdown("**Fuentes oficiales consultadas**")
-                        for source_index, source_url in enumerate(
-                            source_urls,
-                            start=1,
-                        ):
-                            st.markdown(
-                                f"- [Fuente oficial {source_index}]({source_url})"
+            status_icons = {
+                StrategyStatus.VIABLE: "✅",
+                StrategyStatus.NOT_VIABLE: "❌",
+                StrategyStatus.NOT_RELEVANT: "◯",
+                StrategyStatus.DUPLICATE_MAIN: "=",
+            }
+            status_labels = {
+                StrategyStatus.VIABLE: "Opción viable",
+                StrategyStatus.NOT_VIABLE: "No resuelve la operación",
+                StrategyStatus.NOT_RELEVANT: "No aplica al problema actual",
+                StrategyStatus.DUPLICATE_MAIN: "Coincide con la recomendación principal",
+            }
+
+            for evaluation in alternatives_result.strategy_evaluations:
+                strategy_name = DECISION_STRATEGY_TITLES[evaluation.alternative_type]
+                icon = status_icons[evaluation.status]
+                status_label = status_labels[evaluation.status]
+
+                with st.container(border=True):
+                    st.markdown(f"**{icon} {strategy_name} · {status_label}**")
+                    st.write(evaluation.explanation)
+
+                    if (
+                        evaluation.status == StrategyStatus.VIABLE
+                        and evaluation.alternative is not None
+                    ):
+                        alt = evaluation.alternative
+                        alt_financial = alt.financial_result
+                        d1, d2, d3 = st.columns(3)
+                        with d1:
+                            st.metric("Precio", money_text(alt.property_price))
+                        with d2:
+                            st.metric("Entrada", money_text(alt.planned_down_payment))
+                        with d3:
+                            st.metric(
+                                "Plazo",
+                                f"{alt.term_years} años"
+                                if alt.term_years is not None
+                                else "—",
                             )
 
-                st.caption(
-                    "Compatibilidad documental, no recomendación de entidad "
-                    "ni predicción de concesión."
+                        i1, i2, i3 = st.columns(3)
+                        with i1:
+                            st.metric(
+                                "Cuota estimada",
+                                money_text(alt_financial.monthly_payment),
+                            )
+                        with i2:
+                            st.metric(
+                                "Ratio de endeudamiento resultante",
+                                pct_text(alt_financial.dsti),
+                            )
+                        with i3:
+                            st.metric(
+                                "Financiación sobre valor resultante",
+                                pct_text(ltv_value(alt_financial)),
+                            )
+
+        with st.expander("Detalle técnico y trazabilidad"):
+            st.write("**Perfil objetivo:** STANDARD")
+            st.write("**LTV objetivo máximo:** 80%")
+            st.write("**DSTI objetivo máximo:** 40%")
+            st.write(
+                "**Completitud del cálculo:**",
+                base_result.metadata.calculation_completeness.value,
+            )
+            st.write(
+                "**Confianza técnica:**",
+                base_result.metadata.technical_confidence.value,
+            )
+
+            if recommendation.boundary is not None:
+                st.write(
+                    "**Frontera técnica de precio:**",
+                    money_text(recommendation.technical_property_price),
+                )
+                st.write(
+                    "**Entrada técnica:**",
+                    money_text(recommendation.technical_down_payment),
+                )
+                st.write(
+                    "**Restricciones dominantes:**",
+                    ", ".join(
+                        constraint.value
+                        for constraint in recommendation.boundary.dominant_constraints
+                    ),
                 )
 
-    if recommendation.status == RecommendationStatus.RESTRUCTURING_AVAILABLE:
-        st.subheader("Objetivo de la recomendación")
-        st.write(
-            "**Mantener el mayor precio posible dentro de los objetivos analizados.**"
-        )
-        with st.expander("¿Por qué esta recomendación?"):
-            st.write(
-                "El sistema busca una estructura que cumpla los objetivos "
-                "configurados de liquidez, financiación y ratio de "
-                "endeudamiento, intentando conservar el mayor precio de "
-                "compra posible."
-            )
+            if base_result.metadata.assumptions:
+                st.write(
+                    "**Supuestos / fallbacks:**",
+                    ", ".join(item.value for item in base_result.metadata.assumptions),
+                )
 
-        presented_scenario = None
-        presented_result = None
-
-        if (
-            recommendation.presented_property_price is not None
-            and recommendation.presented_down_payment is not None
-        ):
-            presented_scenario = replace(
-                scenario,
-                property_price=recommendation.presented_property_price,
-                planned_down_payment=recommendation.presented_down_payment,
-                requested_loan_amount=None,
-            )
-            presented_result = calculate_financial_scenario(
-                presented_scenario,
-                defaults=defaults,
-            )
-
-        st.subheader("Recomendación principal")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric(
-                "Precio orientativo",
-                money_text(recommendation.presented_property_price),
-                delta=signed_money(recommendation.property_price_change),
-            )
-        with c2:
-            st.metric(
-                "Entrada orientativa",
-                money_text(recommendation.presented_down_payment),
-                delta=signed_money(recommendation.down_payment_change),
-            )
-        with c3:
-            st.metric(
-                "Ratio de endeudamiento resultante",
-                pct_text(presented_result.dsti if presented_result else None),
-            )
+            if base_result.metadata.calculation_modes:
+                st.write(
+                    "**Modos de cálculo:**",
+                    ", ".join(
+                        item.value for item in base_result.metadata.calculation_modes
+                    ),
+                )
 
         st.caption(
-            "Esta propuesta conserva el mayor precio posible entre las "
-            "estructuras evaluadas que cumplen los objetivos configurados."
+            "Herramienta de apoyo a la estructuración. No predice aprobación "
+            "bancaria ni sustituye el análisis profesional."
         )
 
-        if presented_scenario is not None and presented_result is not None:
-            comparison_payload = build_recommendation_comparison_payload(
-                base_scenario=scenario,
-                base_result=base_result,
-                recommended_scenario=presented_scenario,
-                recommended_result=presented_result,
-                ltv_target=targets.ltv_target,
-                dsti_target=targets.dsti_target,
-            )
-            render_actual_vs_recommended(comparison_payload)
 
-            with st.expander("Ver comparación técnica completa"):
-                technical_rows = [
-                    {
-                        "Métrica": "Precio",
-                        "Actual": money_text(scenario.property_price),
-                        "Recomendado": money_text(presented_scenario.property_price),
-                    },
-                    {
-                        "Métrica": "Entrada",
-                        "Actual": money_text(scenario.planned_down_payment),
-                        "Recomendado": money_text(
-                            presented_scenario.planned_down_payment
-                        ),
-                    },
-                    {
-                        "Métrica": "Cuota mensual",
-                        "Actual": money_text(base_result.monthly_payment),
-                        "Recomendado": money_text(presented_result.monthly_payment),
-                    },
-                    {
-                        "Métrica": "Financiación sobre valor (LTV)",
-                        "Actual": pct_text(ltv_value(base_result)),
-                        "Recomendado": pct_text(ltv_value(presented_result)),
-                    },
-                    {
-                        "Métrica": "Ratio de endeudamiento (DSTI)",
-                        "Actual": pct_text(base_result.dsti),
-                        "Recomendado": pct_text(presented_result.dsti),
-                    },
-                    {
-                        "Métrica": "Déficit de liquidez",
-                        "Actual": money_text(base_result.cash_gap),
-                        "Recomendado": money_text(presented_result.cash_gap),
-                    },
-                    {
-                        "Métrica": "Ahorro residual",
-                        "Actual": money_text(base_result.residual_savings),
-                        "Recomendado": money_text(presented_result.residual_savings),
-                    },
-                    {
-                        "Métrica": "Plazo",
-                        "Actual": f"{scenario.term_years} años",
-                        "Recomendado": f"{presented_scenario.term_years} años",
-                    },
-                ]
-                st.dataframe(
-                    technical_rows,
-                    use_container_width=True,
-                    hide_index=True,
-                )
+    with bank_fit_tab:
+        # ========================================================
+        # BANK FIT · ACADEMIC / TFM PROTOTYPE
+        # ========================================================
 
-            # ====================================================
-            # SCENARIO EXPLORATION
-            # ====================================================
+        st.subheader("Compatibilidad con criterios públicos de entidades")
+        st.caption(
+            "Prototipo académico para TFM. Compara la estructura con criterios "
+            "públicos documentados; no estima probabilidad de aprobación, no "
+            "recomienda una entidad y no debe utilizarse operativamente con "
+            "prestatarios reales sin revisión jurídica previa."
+        )
 
-            st.subheader("Explorar escenarios")
-            st.caption(
-                "Modifica una variable y observa cómo cambia la estructura "
-                "financiera. Esta sección simula escenarios libres; no "
-                "recalcula la recomendación principal."
-            )
-
-            sensitivity_variable = st.selectbox(
-                "Variable a modificar",
-                [
-                    "Tipo de interés",
-                    "Ingresos mensuales",
-                    "Entrada",
-                    "Precio",
-                    "Plazo",
-                    "Tasación y financiación",
-                ],
-            )
-
-            sensitivity_scenario = scenario
-
-            if sensitivity_variable == "Tipo de interés":
-                new_rate = st.number_input(
-                    "Nuevo tipo de interés (%)",
-                    min_value=0.0,
-                    value=float(interest_rate_pct),
-                    step=0.1,
-                    key="sens_rate",
-                )
-                sensitivity_scenario = replace(
-                    scenario,
-                    interest_rate_annual=D(new_rate) / D("100"),
-                )
-
-            elif sensitivity_variable == "Ingresos mensuales":
-                new_income = st.number_input(
-                    "Nuevos ingresos netos mensuales (€)",
-                    min_value=1.0,
-                    value=float(monthly_net_income),
-                    step=100.0,
-                    key="sens_income",
-                )
-                sensitivity_scenario = replace(
-                    scenario,
-                    monthly_net_income=D(new_income),
-                )
-
-            elif sensitivity_variable == "Entrada":
-                new_down = st.number_input(
-                    "Nueva entrada (€)",
-                    min_value=0.0,
-                    value=float(planned_down_payment),
-                    step=1000.0,
-                    key="sens_down",
-                )
-                sensitivity_scenario = replace(
-                    scenario,
-                    planned_down_payment=D(new_down),
-                    requested_loan_amount=None,
-                )
-
-            elif sensitivity_variable == "Precio":
-                new_price = st.number_input(
-                    "Nuevo precio (€)",
-                    min_value=1.0,
-                    value=float(property_price),
-                    step=1000.0,
-                    key="sens_price",
-                )
-                sensitivity_scenario = replace(
-                    scenario,
-                    property_price=D(new_price),
-                    requested_loan_amount=None,
-                )
-
-            elif sensitivity_variable == "Plazo":
-                new_term = st.number_input(
-                    "Nuevo plazo (años)",
-                    min_value=1,
-                    max_value=40,
-                    value=int(term_years),
-                    step=1,
-                    key="sens_term",
-                )
-                sensitivity_scenario = replace(
-                    scenario,
-                    term_years=int(new_term),
-                )
-
-            elif sensitivity_variable == "Tasación y financiación":
-                base_appraisal_pct = (
-                    float(scenario.appraisal_value / scenario.property_price) * 100
-                    if scenario.appraisal_value is not None
-                    and scenario.property_price > 0
-                    else 100.0
-                )
-                new_appraisal_pct = st.slider(
-                    "Tasación esperada respecto al precio (%)",
-                    min_value=80.0,
-                    max_value=120.0,
-                    value=float(round(base_appraisal_pct)),
-                    step=1.0,
-                    key="sens_appraisal_pct",
-                )
-                financing_pct = st.slider(
-                    "Financiación sobre tasación (%)",
-                    min_value=50.0,
-                    max_value=100.0,
-                    value=80.0,
-                    step=1.0,
-                    key="sens_financing_pct",
-                )
-
-                simulated_appraisal = (
-                    scenario.property_price * D(new_appraisal_pct) / D("100")
-                )
-                simulated_loan = min(
-                    scenario.property_price,
-                    simulated_appraisal * D(financing_pct) / D("100"),
-                )
-                simulated_down = scenario.property_price - simulated_loan
-                sensitivity_scenario = replace(
-                    scenario,
-                    appraisal_value=simulated_appraisal,
-                    requested_loan_amount=simulated_loan,
-                    planned_down_payment=simulated_down,
-                )
-
-            sensitivity_result = calculate_financial_scenario(
-                sensitivity_scenario,
-                defaults=defaults,
-            )
-
-            s1, s2, s3, s4 = st.columns(4)
-            with s1:
-                st.metric("Cuota", money_text(sensitivity_result.monthly_payment))
-            with s2:
-                st.metric(
-                    "Ratio de endeudamiento (DSTI)",
-                    pct_text(sensitivity_result.dsti),
-                )
-            with s3:
-                st.metric(
-                    "Financiación sobre valor (LTV)",
-                    pct_text(ltv_value(sensitivity_result)),
-                )
-            with s4:
-                st.metric(
-                    "Déficit de liquidez",
-                    money_text(sensitivity_result.cash_gap),
-                )
-
-            if sensitivity_variable == "Tasación y financiación":
-                st.markdown("#### Estructura resultante")
-                f1, f2, f3, f4 = st.columns(4)
-                with f1:
-                    st.metric(
-                        "Tasación estimada",
-                        money_text(sensitivity_scenario.appraisal_value),
-                    )
-                with f2:
-                    st.metric(
-                        "Hipoteca simulada",
-                        money_text(sensitivity_scenario.requested_loan_amount),
-                    )
-                with f3:
-                    st.metric(
-                        "Entrada necesaria",
-                        money_text(sensitivity_scenario.planned_down_payment),
-                    )
-                with f4:
-                    financing_vs_price = (
-                        sensitivity_scenario.requested_loan_amount
-                        / sensitivity_scenario.property_price
-                    )
-                    st.metric(
-                        "Financiación / precio",
-                        pct_text(financing_vs_price),
-                    )
-
-                financing_vs_appraisal = (
-                    sensitivity_scenario.requested_loan_amount
-                    / sensitivity_scenario.appraisal_value
-                    if sensitivity_scenario.appraisal_value
-                    and sensitivity_scenario.appraisal_value > 0
+        bank_profile = BorrowerProfile(
+            borrower_ages=tuple(borrower_ages),
+            property_use=(
+                "PRIMARY_HOME"
+                if property_use_label == "Vivienda habitual"
+                else "SECOND_HOME"
+            ),
+            residency_status=(
+                "RESIDENT_ES"
+                if residency_label == "Residente en España"
+                else (
+                    "NON_RESIDENT"
+                    if residency_label == "No residente"
                     else None
                 )
-                st.caption(
-                    "Financiación sobre tasación: "
-                    f"{pct_text(financing_vs_appraisal)} · Simulación "
-                    "orientativa: la concesión real depende de la política "
-                    "y condiciones de cada entidad."
+            ),
+        )
+
+        bank_fit_scenario = scenario
+        bank_fit_financial_result = base_result
+        bank_fit_scenario_label = "Escenario actual"
+
+
+    with scenarios_tab:
+        # ====================================================
+        # SCENARIO EXPLORATION
+        # ====================================================
+
+        st.subheader("Explorar escenarios")
+        st.caption(
+            "Modifica una variable y observa cómo cambia la estructura "
+            "financiera. Esta sección simula escenarios libres; no "
+            "recalcula la recomendación principal."
+        )
+
+        sensitivity_variable = st.selectbox(
+            "Variable a modificar",
+            [
+                "Tipo de interés",
+                "Ingresos mensuales",
+                "Entrada",
+                "Precio",
+                "Plazo",
+                "Tasación y financiación",
+            ],
+        )
+
+        sensitivity_scenario = scenario
+
+        if sensitivity_variable == "Tipo de interés":
+            new_rate = st.number_input(
+                "Nuevo tipo de interés (%)",
+                min_value=0.0,
+                value=float(interest_rate_pct),
+                step=0.1,
+                key="sens_rate",
+            )
+            sensitivity_scenario = replace(
+                scenario,
+                interest_rate_annual=D(new_rate) / D("100"),
+            )
+
+        elif sensitivity_variable == "Ingresos mensuales":
+            new_income = st.number_input(
+                "Nuevos ingresos netos mensuales (€)",
+                min_value=1.0,
+                value=float(monthly_net_income),
+                step=100.0,
+                key="sens_income",
+            )
+            sensitivity_scenario = replace(
+                scenario,
+                monthly_net_income=D(new_income),
+            )
+
+        elif sensitivity_variable == "Entrada":
+            new_down = st.number_input(
+                "Nueva entrada (€)",
+                min_value=0.0,
+                value=float(planned_down_payment),
+                step=1000.0,
+                key="sens_down",
+            )
+            sensitivity_scenario = replace(
+                scenario,
+                planned_down_payment=D(new_down),
+                requested_loan_amount=None,
+            )
+
+        elif sensitivity_variable == "Precio":
+            new_price = st.number_input(
+                "Nuevo precio (€)",
+                min_value=1.0,
+                value=float(property_price),
+                step=1000.0,
+                key="sens_price",
+            )
+            sensitivity_scenario = replace(
+                scenario,
+                property_price=D(new_price),
+                requested_loan_amount=None,
+            )
+
+        elif sensitivity_variable == "Plazo":
+            new_term = st.number_input(
+                "Nuevo plazo (años)",
+                min_value=1,
+                max_value=40,
+                value=int(term_years),
+                step=1,
+                key="sens_term",
+            )
+            sensitivity_scenario = replace(
+                scenario,
+                term_years=int(new_term),
+            )
+
+        elif sensitivity_variable == "Tasación y financiación":
+            base_appraisal_pct = (
+                float(scenario.appraisal_value / scenario.property_price) * 100
+                if scenario.appraisal_value is not None
+                and scenario.property_price > 0
+                else 100.0
+            )
+            new_appraisal_pct = st.slider(
+                "Tasación esperada respecto al precio (%)",
+                min_value=80.0,
+                max_value=120.0,
+                value=float(round(base_appraisal_pct)),
+                step=1.0,
+                key="sens_appraisal_pct",
+            )
+            financing_pct = st.slider(
+                "Financiación sobre tasación (%)",
+                min_value=50.0,
+                max_value=100.0,
+                value=80.0,
+                step=1.0,
+                key="sens_financing_pct",
+            )
+
+            simulated_appraisal = (
+                scenario.property_price * D(new_appraisal_pct) / D("100")
+            )
+            simulated_loan = min(
+                scenario.property_price,
+                simulated_appraisal * D(financing_pct) / D("100"),
+            )
+            simulated_down = scenario.property_price - simulated_loan
+            sensitivity_scenario = replace(
+                scenario,
+                appraisal_value=simulated_appraisal,
+                requested_loan_amount=simulated_loan,
+                planned_down_payment=simulated_down,
+            )
+
+        sensitivity_result = calculate_financial_scenario(
+            sensitivity_scenario,
+            defaults=defaults,
+        )
+
+        s1, s2, s3, s4 = st.columns(4)
+        with s1:
+            st.metric("Cuota", money_text(sensitivity_result.monthly_payment))
+        with s2:
+            st.metric(
+                "Ratio de endeudamiento (DSTI)",
+                pct_text(sensitivity_result.dsti),
+            )
+        with s3:
+            st.metric(
+                "Financiación sobre valor (LTV)",
+                pct_text(ltv_value(sensitivity_result)),
+            )
+        with s4:
+            st.metric(
+                "Déficit de liquidez",
+                money_text(sensitivity_result.cash_gap),
+            )
+
+        if sensitivity_variable == "Tasación y financiación":
+            st.markdown("#### Estructura resultante")
+            f1, f2, f3, f4 = st.columns(4)
+            with f1:
+                st.metric(
+                    "Tasación estimada",
+                    money_text(sensitivity_scenario.appraisal_value),
+                )
+            with f2:
+                st.metric(
+                    "Hipoteca simulada",
+                    money_text(sensitivity_scenario.requested_loan_amount),
+                )
+            with f3:
+                st.metric(
+                    "Entrada necesaria",
+                    money_text(sensitivity_scenario.planned_down_payment),
+                )
+            with f4:
+                financing_vs_price = (
+                    sensitivity_scenario.requested_loan_amount
+                    / sensitivity_scenario.property_price
+                )
+                st.metric(
+                    "Financiación / precio",
+                    pct_text(financing_vs_price),
                 )
 
-        # ====================================================
-        # ALTERNATIVES
-        # ====================================================
-
-        st.subheader("Otras estrategias")
-        st.caption(
-            "Las alternativas responden a objetivos distintos; no son "
-            "versiones peores de la recomendación principal."
-        )
-
-        if not alternatives_result.alternatives:
-            st.write(
-                "No se han encontrado alternativas adicionales dentro de "
-                "las palancas analizadas."
+            financing_vs_appraisal = (
+                sensitivity_scenario.requested_loan_amount
+                / sensitivity_scenario.appraisal_value
+                if sensitivity_scenario.appraisal_value
+                and sensitivity_scenario.appraisal_value > 0
+                else None
             )
-
-        for alternative in alternatives_result.alternatives:
-            title = ALTERNATIVE_TITLES[alternative.alternative_type]
-            with st.container(border=True):
-                st.markdown(f"### {title}")
-                st.write(alternative.explanation)
-
-                a1, a2, a3, a4 = st.columns(4)
-                with a1:
-                    st.metric("Precio", money_text(alternative.property_price))
-                with a2:
-                    st.metric("Entrada", money_text(alternative.planned_down_payment))
-                with a3:
-                    st.metric(
-                        "Plazo",
-                        f"{alternative.term_years} años"
-                        if alternative.term_years is not None
-                        else "—",
-                    )
-                with a4:
-                    st.metric(
-                        "Cuota",
-                        money_text(alternative.financial_result.monthly_payment),
-                    )
-
-                r1, r2, r3 = st.columns(3)
-                with r1:
-                    st.write(
-                        "**Liquidez:**",
-                        money_text(alternative.financial_result.cash_gap),
-                    )
-                with r2:
-                    st.write(
-                        "**Financiación sobre valor (LTV):**",
-                        pct_text(ltv_value(alternative.financial_result)),
-                    )
-                with r3:
-                    st.write(
-                        "**Ratio de endeudamiento (DSTI):**",
-                        pct_text(alternative.financial_result.dsti),
-                    )
-
-        st.subheader("Opciones para reestructurar la operación")
-        st.caption(
-            "El sistema analiza distintas estrategias y muestra cuáles "
-            "pueden resolver las restricciones detectadas."
-        )
-
-        status_icons = {
-            StrategyStatus.VIABLE: "✅",
-            StrategyStatus.NOT_VIABLE: "❌",
-            StrategyStatus.NOT_RELEVANT: "◯",
-            StrategyStatus.DUPLICATE_MAIN: "=",
-        }
-        status_labels = {
-            StrategyStatus.VIABLE: "Opción viable",
-            StrategyStatus.NOT_VIABLE: "No resuelve la operación",
-            StrategyStatus.NOT_RELEVANT: "No aplica al problema actual",
-            StrategyStatus.DUPLICATE_MAIN: "Coincide con la recomendación principal",
-        }
-
-        for evaluation in alternatives_result.strategy_evaluations:
-            strategy_name = DECISION_STRATEGY_TITLES[evaluation.alternative_type]
-            icon = status_icons[evaluation.status]
-            status_label = status_labels[evaluation.status]
-
-            with st.container(border=True):
-                st.markdown(f"**{icon} {strategy_name} · {status_label}**")
-                st.write(evaluation.explanation)
-
-                if (
-                    evaluation.status == StrategyStatus.VIABLE
-                    and evaluation.alternative is not None
-                ):
-                    alt = evaluation.alternative
-                    alt_financial = alt.financial_result
-                    d1, d2, d3 = st.columns(3)
-                    with d1:
-                        st.metric("Precio", money_text(alt.property_price))
-                    with d2:
-                        st.metric("Entrada", money_text(alt.planned_down_payment))
-                    with d3:
-                        st.metric(
-                            "Plazo",
-                            f"{alt.term_years} años"
-                            if alt.term_years is not None
-                            else "—",
-                        )
-
-                    i1, i2, i3 = st.columns(3)
-                    with i1:
-                        st.metric(
-                            "Cuota estimada",
-                            money_text(alt_financial.monthly_payment),
-                        )
-                    with i2:
-                        st.metric(
-                            "Ratio de endeudamiento resultante",
-                            pct_text(alt_financial.dsti),
-                        )
-                    with i3:
-                        st.metric(
-                            "Financiación sobre valor resultante",
-                            pct_text(ltv_value(alt_financial)),
-                        )
-
-    with st.expander("Detalle técnico y trazabilidad"):
-        st.write("**Perfil objetivo:** STANDARD")
-        st.write("**LTV objetivo máximo:** 80%")
-        st.write("**DSTI objetivo máximo:** 40%")
-        st.write(
-            "**Completitud del cálculo:**",
-            base_result.metadata.calculation_completeness.value,
-        )
-        st.write(
-            "**Confianza técnica:**",
-            base_result.metadata.technical_confidence.value,
-        )
-
-        if recommendation.boundary is not None:
-            st.write(
-                "**Frontera técnica de precio:**",
-                money_text(recommendation.technical_property_price),
+            st.caption(
+                "Financiación sobre tasación: "
+                f"{pct_text(financing_vs_appraisal)} · Simulación "
+                "orientativa: la concesión real depende de la política "
+                "y condiciones de cada entidad."
             )
-            st.write(
-                "**Entrada técnica:**",
-                money_text(recommendation.technical_down_payment),
-            )
-            st.write(
-                "**Restricciones dominantes:**",
-                ", ".join(
-                    constraint.value
-                    for constraint in recommendation.boundary.dominant_constraints
-                ),
-            )
-
-        if base_result.metadata.assumptions:
-            st.write(
-                "**Supuestos / fallbacks:**",
-                ", ".join(item.value for item in base_result.metadata.assumptions),
-            )
-
-        if base_result.metadata.calculation_modes:
-            st.write(
-                "**Modos de cálculo:**",
-                ", ".join(
-                    item.value for item in base_result.metadata.calculation_modes
-                ),
-            )
-
-    st.caption(
-        "Herramienta de apoyo a la estructuración. No predice aprobación "
-        "bancaria ni sustituye el análisis profesional."
-    )
