@@ -46,6 +46,8 @@ class CriterionEvaluation:
     criterion_value: Optional[Decimal]
     source_status: str
     source_url: Optional[str]
+    verified_at: Optional[str]
+    review_due_at: Optional[str]
     explanation: str
 
 
@@ -122,6 +124,8 @@ def _unknown_evaluation(
         criterion_value=_decimal(criterion.get("value")),
         source_status=str(criterion.get("source_status", "UNKNOWN")),
         source_url=criterion.get("source_url"),
+        verified_at=criterion.get("verified_at"),
+        review_due_at=criterion.get("review_due_at"),
         explanation=explanation,
     )
 
@@ -159,6 +163,8 @@ def _evaluate_maximum(
         criterion_value=limit,
         source_status=str(criterion.get("source_status", "UNKNOWN")),
         source_url=criterion.get("source_url"),
+        verified_at=criterion.get("verified_at"),
+        review_due_at=criterion.get("review_due_at"),
         explanation=(
             f"{explanation_label}: valor observado {actual_value} "
             f"frente a máximo publicado {limit}."
