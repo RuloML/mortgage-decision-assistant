@@ -322,6 +322,16 @@ A partir de ahí puede:
 
 ---
 
+## 🚀 Demo de la aplicación
+
+La versión funcional del prototipo puede consultarse en Streamlit:
+
+👉 **[Abrir Mortgage Decision Assistant](https://mortgage-decision-assistant-drvf9uyutg3cbzfppodnxg.streamlit.app/)**
+
+La demo corresponde a la versión académica utilizada para el TFM. La funcionalidad **Bank Fit** se incluye únicamente con fines académicos y demostrativos, pendiente de revisión jurídica y regulatoria antes de cualquier uso operativo con clientes reales.
+
+---
+
 ## 🧪 Validación
 
 El proyecto incluye una suite automatizada de tests.
