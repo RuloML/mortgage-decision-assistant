@@ -885,92 +885,168 @@ if st.session_state.get("analysis_ready", False):
                 "del dataset académico actual."
             )
         else:
+            criterion_labels = {
+                "MAX_LTV": "Financiación sobre valor",
+                "MAX_TERM_YEARS": "Plazo",
+                "MAX_AGE_AT_MATURITY": "Edad al vencimiento",
+                "MIN_TOTAL_MONTHLY_INCOME": "Ingresos netos mensuales conjuntos",
+                "MAX_DSTI": "Ratio de endeudamiento (DSTI)",
+                "MAX_TOTAL_DEBT_RATIO": "Deuda total sobre ingresos",
+                "MAX_MORTGAGE_PAYMENT_RATIO": "Cuota hipotecaria sobre ingresos",
+                "MAX_FINANCING_AMOUNT": "Importe financiado",
+            }
+
+            def bank_fit_value_text(criterion_id, value):
+                if value is None:
+                    return "—"
+                if criterion_id in {
+                    "MAX_LTV",
+                    "MAX_DSTI",
+                    "MAX_TOTAL_DEBT_RATIO",
+                    "MAX_MORTGAGE_PAYMENT_RATIO",
+                }:
+                    return pct_text(value)
+                if criterion_id in {
+                    "MIN_TOTAL_MONTHLY_INCOME",
+                    "MAX_FINANCING_AMOUNT",
+                }:
+                    return money_text(value)
+                if criterion_id in {
+                    "MAX_TERM_YEARS",
+                    "MAX_AGE_AT_MATURITY",
+                }:
+                    return f"{value} años"
+                return str(value)
+
             for bank_fit in comparable_results:
                 with st.container(border=True):
                     st.markdown(
                         f"### {bank_fit.bank_name} · {bank_fit.product_name}"
                     )
 
+                    hard_mismatches = [
+                        criterion
+                        for criterion in bank_fit.criteria
+                        if (
+                            criterion.evidence_type.value == "HARD_PUBLIC_CRITERION"
+                            and criterion.status == CriterionStatus.MISMATCH
+                        )
+                    ]
+                    hard_unknowns = [
+                        criterion
+                        for criterion in bank_fit.criteria
+                        if (
+                            criterion.evidence_type.value == "HARD_PUBLIC_CRITERION"
+                            and criterion.status == CriterionStatus.UNKNOWN
+                        )
+                    ]
+
                     if bank_fit.product_status == ProductStatus.INSUFFICIENT_INFORMATION:
                         st.warning(
                             "Información insuficiente para comparar este producto "
                             "con fiabilidad."
                         )
-                    elif bank_fit.hard_mismatches > 0:
+                    elif hard_mismatches:
+                        mismatch_names = ", ".join(
+                            criterion_labels.get(
+                                criterion.criterion_id,
+                                criterion.criterion_id,
+                            )
+                            for criterion in hard_mismatches
+                        )
                         st.warning(
-                            "Se han detectado criterios públicos duros que la "
-                            "estructura evaluada no cumple."
+                            "Punto de atención: la estructura queda fuera de "
+                            f"criterio público en **{mismatch_names}**."
                         )
                     else:
                         st.success(
                             "No se han detectado incumplimientos en los criterios "
-                            "públicos duros que han podido evaluarse."
+                            "públicos que han podido evaluarse."
                         )
 
                     evaluable_hard = (
                         bank_fit.hard_matches + bank_fit.hard_mismatches
                     )
-                    compatibility_text = (
-                        f"{bank_fit.hard_matches}/{evaluable_hard}"
-                        if evaluable_hard > 0
-                        else "—"
-                    )
-
                     bf1, bf2, bf3, bf4 = st.columns(4)
                     with bf1:
-                        st.metric("Criterios duros", compatibility_text)
+                        st.metric(
+                            "Dentro de criterio",
+                            str(bank_fit.hard_matches),
+                        )
                     with bf2:
                         st.metric(
-                            "Cobertura core",
-                            f"{float(bank_fit.core_coverage) * 100:.0f}%",
+                            "Fuera de criterio",
+                            str(bank_fit.hard_mismatches),
                         )
                     with bf3:
                         st.metric(
-                            "Mismatches duros",
-                            str(bank_fit.hard_mismatches),
+                            "No evaluables",
+                            str(len(hard_unknowns)),
                         )
                     with bf4:
                         st.metric(
-                            "Criterios desconocidos",
-                            str(bank_fit.unknown_count),
+                            "Cobertura",
+                            f"{float(bank_fit.core_coverage) * 100:.0f}%",
                         )
+
+                    adviser_rows = []
+                    for criterion in bank_fit.criteria:
+                        status_label = {
+                            CriterionStatus.MATCH: "✅ Dentro",
+                            CriterionStatus.MISMATCH: "⚠️ Fuera",
+                            CriterionStatus.UNKNOWN: "❔ No evaluable",
+                            CriterionStatus.NOT_APPLICABLE: "— No aplica",
+                        }[criterion.status]
+
+                        adviser_rows.append(
+                            {
+                                "Criterio": criterion_labels.get(
+                                    criterion.criterion_id,
+                                    criterion.criterion_id,
+                                ),
+                                "Esta operación": bank_fit_value_text(
+                                    criterion.criterion_id,
+                                    criterion.actual_value,
+                                ),
+                                "Criterio público": bank_fit_value_text(
+                                    criterion.criterion_id,
+                                    criterion.criterion_value,
+                                ),
+                                "Resultado": status_label,
+                            }
+                        )
+
+                    st.dataframe(
+                        adviser_rows,
+                        width="stretch",
+                        hide_index=True,
+                    )
 
                     if (
                         bank_fit.guidance_matches
                         or bank_fit.guidance_mismatches
                     ):
                         st.caption(
-                            "Orientaciones públicas: "
-                            f"{bank_fit.guidance_matches} compatibles · "
-                            f"{bank_fit.guidance_mismatches} no compatibles. "
-                            "Estas orientaciones no se tratan como límites duros."
+                            "Las referencias orientativas publicadas por la "
+                            "entidad se muestran como apoyo y no se tratan como "
+                            "límites duros."
                         )
 
-                    with st.expander("Ver criterios y trazabilidad"):
-                        rows = []
+                    with st.expander("Ver fuente y trazabilidad"):
+                        technical_rows = []
                         for criterion in bank_fit.criteria:
-                            status_label = {
-                                CriterionStatus.MATCH: "Cumple",
-                                CriterionStatus.MISMATCH: "No cumple",
-                                CriterionStatus.UNKNOWN: "Desconocido",
-                                CriterionStatus.NOT_APPLICABLE: "No aplica",
+                            technical_status_label = {
+                                CriterionStatus.MATCH: "MATCH",
+                                CriterionStatus.MISMATCH: "MISMATCH",
+                                CriterionStatus.UNKNOWN: "UNKNOWN",
+                                CriterionStatus.NOT_APPLICABLE: "NOT_APPLICABLE",
                             }[criterion.status]
 
-                            rows.append(
+                            technical_rows.append(
                                 {
                                     "Criterio": criterion.criterion_id,
-                                    "Estado": status_label,
+                                    "Estado técnico": technical_status_label,
                                     "Evidencia": criterion.evidence_type.value,
-                                    "Valor observado": (
-                                        str(criterion.actual_value)
-                                        if criterion.actual_value is not None
-                                        else "—"
-                                    ),
-                                    "Criterio publicado": (
-                                        str(criterion.criterion_value)
-                                        if criterion.criterion_value is not None
-                                        else "—"
-                                    ),
                                     "Fuente": criterion.source_status,
                                     "Verificado": criterion.verified_at or "—",
                                     "Revisar antes de": criterion.review_due_at or "—",
@@ -978,7 +1054,7 @@ if st.session_state.get("analysis_ready", False):
                             )
 
                         st.dataframe(
-                            rows,
+                            technical_rows,
                             width="stretch",
                             hide_index=True,
                         )
@@ -1002,8 +1078,9 @@ if st.session_state.get("analysis_ready", False):
                                 )
 
                     st.caption(
-                        "Compatibilidad documental, no recomendación de entidad "
-                        "ni predicción de concesión."
+                        "Compatibilidad documental para apoyar la revisión del "
+                        "asesor. No es una recomendación de entidad ni una "
+                        "predicción de concesión."
                     )
 
 
