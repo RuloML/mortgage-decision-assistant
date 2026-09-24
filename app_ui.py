@@ -985,9 +985,19 @@ if st.session_state.get("analysis_ready", False):
                         )
                     with bf4:
                         st.metric(
-                            "Cobertura",
+                            "Cobertura de evaluación",
                             f"{float(bank_fit.core_coverage) * 100:.0f}%",
                         )
+
+                    total_core_criteria = (
+                        bank_fit.hard_matches
+                        + bank_fit.hard_mismatches
+                        + len(hard_unknowns)
+                    )
+                    st.caption(
+                        f"{evaluable_hard} de {total_core_criteria} criterios "
+                        "principales pudieron evaluarse."
+                    )
 
                     adviser_rows = []
                     for criterion in bank_fit.criteria:
